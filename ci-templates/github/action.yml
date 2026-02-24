@@ -1,0 +1,157 @@
+# ROSForge Migration Verification — Reusable GitHub Action
+#
+# Usage in your workflow:
+#   - uses: Rlin1027/ROSForge/ci-templates/github@main
+#     with:
+#       source: ./my_ros1_package
+#       mode: analyze          # "analyze" or "migrate"
+#       engine: claude
+#       target-distro: humble
+
+name: "ROSForge Migration Verification"
+description: "Analyse or migrate a ROS1 package to ROS2 using ROSForge."
+
+branding:
+  icon: "refresh-cw"
+  color: "blue"
+
+inputs:
+  source:
+    description: "Path to the ROS1 package directory."
+    required: true
+  mode:
+    description: "Operation mode: 'analyze' (complexity report) or 'migrate' (full migration)."
+    required: false
+    default: "analyze"
+  engine:
+    description: "AI engine to use (claude / gemini / openai)."
+    required: false
+    default: "claude"
+  engine-mode:
+    description: "Engine communication mode: 'cli' or 'api'."
+    required: false
+    default: "cli"
+  target-distro:
+    description: "Target ROS2 distribution (humble / iron / jazzy)."
+    required: false
+    default: "humble"
+  output:
+    description: "Output directory for migrated package (migrate mode only)."
+    required: false
+    default: ""
+  max-fix-attempts:
+    description: "Maximum auto-fix attempts after build failure (0 = disabled)."
+    required: false
+    default: "0"
+  rules:
+    description: "Path to custom transformation rules YAML file."
+    required: false
+    default: ""
+  rosforge-version:
+    description: "ROSForge version to install (e.g. '0.2.0', 'latest')."
+    required: false
+    default: "latest"
+  python-version:
+    description: "Python version to use."
+    required: false
+    default: "3.12"
+  fail-on-warnings:
+    description: "Treat exit code 2 (warnings) as failure."
+    required: false
+    default: "false"
+
+outputs:
+  exit-code:
+    description: "ROSForge exit code (0 = success, 1 = failure, 2 = warnings)."
+    value: ${{ steps.run.outputs.exit_code }}
+  report:
+    description: "JSON analysis report (analyze mode) or migration report path (migrate mode)."
+    value: ${{ steps.run.outputs.report }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install ROSForge
+      shell: bash
+      run: |
+        if [ "${{ inputs.rosforge-version }}" = "latest" ]; then
+          pip install rosforge
+        else
+          pip install "rosforge==${{ inputs.rosforge-version }}"
+        fi
+
+    - name: Run ROSForge
+      id: run
+      shell: bash
+      run: |
+        set +e
+
+        if [ "${{ inputs.mode }}" = "analyze" ]; then
+          # --- Analyze mode ---
+          REPORT=$(rosforge analyze "${{ inputs.source }}" --json 2>&1)
+          EXIT_CODE=$?
+          echo "exit_code=${EXIT_CODE}" >> "$GITHUB_OUTPUT"
+          # Write report to file for artifact upload
+          echo "${REPORT}" > rosforge-analysis.json
+          echo "report=rosforge-analysis.json" >> "$GITHUB_OUTPUT"
+          # Print summary
+          echo "### ROSForge Analysis Report" >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          echo "${REPORT}" | head -50 >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+        elif [ "${{ inputs.mode }}" = "migrate" ]; then
+          # --- Migrate mode ---
+          OUTPUT_DIR="${{ inputs.output }}"
+          if [ -z "${OUTPUT_DIR}" ]; then
+            OUTPUT_DIR="${{ inputs.source }}_ros2"
+          fi
+
+          CMD="rosforge migrate ${{ inputs.source }} --output ${OUTPUT_DIR}"
+          CMD="${CMD} --engine ${{ inputs.engine }}"
+          CMD="${CMD} --mode ${{ inputs.engine-mode }}"
+          CMD="${CMD} --distro ${{ inputs.target-distro }}"
+          CMD="${CMD} --yes"
+
+          if [ "${{ inputs.max-fix-attempts }}" != "0" ]; then
+            CMD="${CMD} --max-fix-attempts ${{ inputs.max-fix-attempts }}"
+          fi
+
+          if [ -n "${{ inputs.rules }}" ]; then
+            CMD="${CMD} --rules ${{ inputs.rules }}"
+          fi
+
+          eval ${CMD}
+          EXIT_CODE=$?
+          echo "exit_code=${EXIT_CODE}" >> "$GITHUB_OUTPUT"
+
+          REPORT_PATH="${OUTPUT_DIR}/migration_report.md"
+          echo "report=${REPORT_PATH}" >> "$GITHUB_OUTPUT"
+
+          if [ -f "${REPORT_PATH}" ]; then
+            echo "### ROSForge Migration Report" >> "$GITHUB_STEP_SUMMARY"
+            head -30 "${REPORT_PATH}" >> "$GITHUB_STEP_SUMMARY"
+          fi
+        else
+          echo "Error: unknown mode '${{ inputs.mode }}'. Use 'analyze' or 'migrate'."
+          echo "exit_code=1" >> "$GITHUB_OUTPUT"
+          exit 1
+        fi
+
+        # Handle exit codes
+        if [ "${EXIT_CODE}" -eq 0 ]; then
+          echo "ROSForge completed successfully."
+        elif [ "${EXIT_CODE}" -eq 2 ]; then
+          echo "::warning::ROSForge completed with warnings."
+          if [ "${{ inputs.fail-on-warnings }}" = "true" ]; then
+            exit 2
+          fi
+        else
+          echo "::error::ROSForge failed with exit code ${EXIT_CODE}."
+          exit ${EXIT_CODE}
+        fi

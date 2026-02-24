@@ -161,6 +161,79 @@ rosforge analyze ./my_package --json
 rosforge analyze ./my_package -o analysis.json
 ```
 
+## CI/CD Integration
+
+ROSForge provides ready-made templates for GitHub Actions and GitLab CI so you can automatically verify ROS1→ROS2 migration in your pipeline.
+
+### GitHub Actions
+
+Use the reusable composite action:
+
+```yaml
+# .github/workflows/rosforge.yml
+name: ROSForge Migration Check
+on: [push, pull_request]
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Rlin1027/ROSForge/ci-templates/github@main
+        with:
+          source: ./src/my_ros1_package
+          mode: analyze            # "analyze" or "migrate"
+```
+
+For a full migration dry-run with auto-fix:
+
+```yaml
+      - uses: Rlin1027/ROSForge/ci-templates/github@main
+        with:
+          source: ./src/my_ros1_package
+          mode: migrate
+          engine: claude
+          engine-mode: api
+          max-fix-attempts: "2"
+          fail-on-warnings: "true"
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+```
+
+See [`ci-templates/github/example-workflow.yml`](ci-templates/github/example-workflow.yml) for a complete example.
+
+### GitLab CI
+
+Include the remote template and extend the hidden jobs:
+
+```yaml
+# .gitlab-ci.yml
+include:
+  - remote: "https://raw.githubusercontent.com/Rlin1027/ROSForge/main/ci-templates/gitlab/.gitlab-ci-rosforge.yml"
+
+variables:
+  ROSFORGE_SOURCE: ./src/my_ros1_package
+  ROSFORGE_ENGINE: claude
+  ROSFORGE_TARGET_DISTRO: humble
+
+rosforge-analyze:
+  extends: .rosforge-analyze
+
+rosforge-migrate:
+  extends: .rosforge-migrate
+  variables:
+    ROSFORGE_ENGINE_MODE: api
+    ROSFORGE_MAX_FIX_ATTEMPTS: "2"
+```
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | Failure |
+| 2 | Completed with warnings (set `fail-on-warnings` to treat as failure) |
+
 ## Custom Rules
 
 Create a YAML file to add or override transformation mappings:

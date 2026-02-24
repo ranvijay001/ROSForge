@@ -1,0 +1,67 @@
+# Example: ROSForge CI workflow for ROS1 packages
+#
+# Copy this file to your project's .github/workflows/ directory.
+# Adjust paths and settings to match your repository layout.
+
+name: ROSForge Migration Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ------------------------------------------------------------------
+  # Job 1: Analyze migration complexity (fast, no engine needed)
+  # ------------------------------------------------------------------
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Analyze ROS1 package
+        id: analyze
+        uses: Rlin1027/ROSForge/ci-templates/github@main
+        with:
+          source: ./src/my_ros1_package    # <-- change to your package path
+          mode: analyze
+
+      - name: Upload analysis report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rosforge-analysis
+          path: rosforge-analysis.json
+
+  # ------------------------------------------------------------------
+  # Job 2: Full migration dry-run (requires AI engine access)
+  # ------------------------------------------------------------------
+  migrate:
+    runs-on: ubuntu-latest
+    needs: analyze
+    # Only run on main branch pushes (migration uses API credits)
+    if: github.event_name == 'push'
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Migrate ROS1 package
+        id: migrate
+        uses: Rlin1027/ROSForge/ci-templates/github@main
+        with:
+          source: ./src/my_ros1_package    # <-- change to your package path
+          mode: migrate
+          engine: claude
+          engine-mode: api
+          target-distro: humble
+          max-fix-attempts: "2"
+          fail-on-warnings: "true"
+
+      - name: Upload migrated package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ros2-migrated
+          path: ./src/my_ros1_package_ros2/

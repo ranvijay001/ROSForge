@@ -1,0 +1,120 @@
+# ROSForge GitLab CI Template
+#
+# Include this template in your .gitlab-ci.yml:
+#
+#   include:
+#     - remote: "https://raw.githubusercontent.com/Rlin1027/ROSForge/main/ci-templates/gitlab/.gitlab-ci-rosforge.yml"
+#
+#   variables:
+#     ROSFORGE_SOURCE: ./src/my_ros1_package
+#     ROSFORGE_ENGINE: claude
+#     ROSFORGE_TARGET_DISTRO: humble
+#
+# Then reference the jobs:
+#   rosforge-analyze:
+#     extends: .rosforge-analyze
+#
+#   rosforge-migrate:
+#     extends: .rosforge-migrate
+
+# -- Variables (override in your .gitlab-ci.yml) ----------------------
+
+variables:
+  ROSFORGE_VERSION: "latest"
+  ROSFORGE_SOURCE: ""
+  ROSFORGE_ENGINE: "claude"
+  ROSFORGE_ENGINE_MODE: "cli"
+  ROSFORGE_TARGET_DISTRO: "humble"
+  ROSFORGE_OUTPUT: ""
+  ROSFORGE_MAX_FIX_ATTEMPTS: "0"
+  ROSFORGE_RULES: ""
+  ROSFORGE_PYTHON_VERSION: "3.12"
+  ROSFORGE_FAIL_ON_WARNINGS: "false"
+
+# -- Hidden base job --------------------------------------------------
+
+.rosforge-base:
+  image: python:${ROSFORGE_PYTHON_VERSION}-slim
+  before_script:
+    - |
+      if [ "${ROSFORGE_VERSION}" = "latest" ]; then
+        pip install --quiet rosforge
+      else
+        pip install --quiet "rosforge==${ROSFORGE_VERSION}"
+      fi
+
+# -- Analyze job (no AI engine required) ------------------------------
+
+.rosforge-analyze:
+  extends: .rosforge-base
+  stage: test
+  script:
+    - |
+      if [ -z "${ROSFORGE_SOURCE}" ]; then
+        echo "Error: ROSFORGE_SOURCE is not set."
+        exit 1
+      fi
+      rosforge analyze "${ROSFORGE_SOURCE}" --json | tee rosforge-analysis.json
+      EXIT_CODE=${PIPESTATUS[0]}
+      if [ "${EXIT_CODE}" -eq 2 ] && [ "${ROSFORGE_FAIL_ON_WARNINGS}" = "true" ]; then
+        echo "Failing due to warnings (ROSFORGE_FAIL_ON_WARNINGS=true)"
+        exit 2
+      elif [ "${EXIT_CODE}" -ne 0 ] && [ "${EXIT_CODE}" -ne 2 ]; then
+        exit ${EXIT_CODE}
+      fi
+  artifacts:
+    paths:
+      - rosforge-analysis.json
+    when: always
+    expire_in: 30 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# -- Migrate job (AI engine + optional colcon build) ------------------
+
+.rosforge-migrate:
+  extends: .rosforge-base
+  stage: test
+  script:
+    - |
+      if [ -z "${ROSFORGE_SOURCE}" ]; then
+        echo "Error: ROSFORGE_SOURCE is not set."
+        exit 1
+      fi
+
+      OUTPUT_DIR="${ROSFORGE_OUTPUT}"
+      if [ -z "${OUTPUT_DIR}" ]; then
+        OUTPUT_DIR="${ROSFORGE_SOURCE}_ros2"
+      fi
+
+      CMD="rosforge migrate ${ROSFORGE_SOURCE} --output ${OUTPUT_DIR}"
+      CMD="${CMD} --engine ${ROSFORGE_ENGINE}"
+      CMD="${CMD} --mode ${ROSFORGE_ENGINE_MODE}"
+      CMD="${CMD} --distro ${ROSFORGE_TARGET_DISTRO}"
+      CMD="${CMD} --yes"
+
+      if [ "${ROSFORGE_MAX_FIX_ATTEMPTS}" != "0" ]; then
+        CMD="${CMD} --max-fix-attempts ${ROSFORGE_MAX_FIX_ATTEMPTS}"
+      fi
+
+      if [ -n "${ROSFORGE_RULES}" ]; then
+        CMD="${CMD} --rules ${ROSFORGE_RULES}"
+      fi
+
+      eval ${CMD}
+      EXIT_CODE=$?
+
+      if [ "${EXIT_CODE}" -eq 2 ] && [ "${ROSFORGE_FAIL_ON_WARNINGS}" = "true" ]; then
+        echo "Failing due to warnings (ROSFORGE_FAIL_ON_WARNINGS=true)"
+        exit 2
+      elif [ "${EXIT_CODE}" -ne 0 ] && [ "${EXIT_CODE}" -ne 2 ]; then
+        exit ${EXIT_CODE}
+      fi
+  artifacts:
+    paths:
+      - ${ROSFORGE_OUTPUT:-${ROSFORGE_SOURCE}_ros2}/
+    when: always
+    expire_in: 30 days
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
