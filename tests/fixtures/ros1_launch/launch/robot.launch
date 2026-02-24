@@ -1,0 +1,21 @@
+<launch>
+  <arg name="robot_name" default="my_robot"/>
+  <arg name="use_sim_time" default="false"/>
+
+  <param name="robot_description" command="$(find xacro)/xacro $(find robot_launch)/urdf/robot.urdf.xacro"/>
+
+  <node name="talker" pkg="roscpp_tutorials" type="talker" output="screen">
+    <param name="rate" value="10"/>
+  </node>
+
+  <node name="listener" pkg="roscpp_tutorials" type="listener" output="screen"/>
+
+  <group if="$(arg use_sim_time)">
+    <param name="/use_sim_time" value="true"/>
+    <node name="gazebo" pkg="gazebo_ros" type="gzserver" args="-e ode"/>
+  </group>
+
+  <include file="$(find robot_launch)/launch/sensors.launch">
+    <arg name="robot_name" value="$(arg robot_name)"/>
+  </include>
+</launch>

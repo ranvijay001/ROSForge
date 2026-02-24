@@ -98,9 +98,9 @@ def parse_cmake(path: Path) -> dict:
     # Remove line continuations for easier parsing
     text_flat = re.sub(r"\\\n", " ", text)
 
-    # project name
+    # project name — capture until whitespace or closing paren
     project_name = ""
-    m = re.search(r"project\s*\(\s*(\S+)", text_flat, re.IGNORECASE)
+    m = re.search(r"project\s*\(\s*([^\s)]+)", text_flat, re.IGNORECASE)
     if m:
         project_name = m.group(1)
 
@@ -143,13 +143,60 @@ def parse_cmake(path: Path) -> dict:
             if tgt["name"] == tgt_name:
                 tgt.setdefault("link_libraries", []).extend(libs)
 
-    # install rules — collect DESTINATION values
+    # install rules — collect all DESTINATION values from all install() calls
     install_rules: list[str] = []
-    inst_re = re.compile(r"install\s*\(([^)]+)\)", re.IGNORECASE)
-    for m in inst_re.finditer(text_flat):
-        args = m.group(1).split()
-        dests = _extract_keyword_values(args, "DESTINATION")
-        install_rules.extend(dests)
+    # Find all install( call positions and extract args using balanced-paren helper
+    for inst_match in re.finditer(r"\binstall\s*\(", text_flat, re.IGNORECASE):
+        start = inst_match.end()
+        depth = 1
+        pos = start
+        while pos < len(text_flat) and depth > 0:
+            if text_flat[pos] == "(":
+                depth += 1
+            elif text_flat[pos] == ")":
+                depth -= 1
+            pos += 1
+        inner = text_flat[start : pos - 1]
+        inner = re.sub(r"#[^\n]*", "", inner)
+        args = [tok for tok in inner.split() if tok]
+        # Collect values after every DESTINATION keyword
+        # A CMake keyword is all-alpha uppercase (no $, {, }, etc.)
+        def _is_cmake_keyword(tok: str) -> bool:
+            return bool(tok) and tok.isalpha() and tok.isupper() and len(tok) > 1
+
+        i = 0
+        while i < len(args):
+            if args[i] == "DESTINATION":
+                i += 1
+                while i < len(args) and not (_is_cmake_keyword(args[i]) and args[i] != "DESTINATION"):
+                    install_rules.append(args[i])
+                    i += 1
+            else:
+                i += 1
+
+    # add_message_files(FILES ...)
+    msg_files: list[str] = []
+    amf_args = _extract_macro_args(text_flat, "add_message_files")
+    if amf_args:
+        msg_files = _extract_keyword_values(amf_args, "FILES")
+
+    # add_service_files(FILES ...)
+    srv_files: list[str] = []
+    asf_args = _extract_macro_args(text_flat, "add_service_files")
+    if asf_args:
+        srv_files = _extract_keyword_values(asf_args, "FILES")
+
+    # add_action_files(FILES ...)
+    action_files: list[str] = []
+    aaf_args = _extract_macro_args(text_flat, "add_action_files")
+    if aaf_args:
+        action_files = _extract_keyword_values(aaf_args, "FILES")
+
+    # generate_messages(DEPENDENCIES ...)
+    msg_deps: list[str] = []
+    gm_args = _extract_macro_args(text_flat, "generate_messages")
+    if gm_args:
+        msg_deps = _extract_keyword_values(gm_args, "DEPENDENCIES")
 
     return {
         "project_name": project_name,
@@ -157,4 +204,8 @@ def parse_cmake(path: Path) -> dict:
         "catkin_depends": catkin_depends,
         "targets": targets,
         "install_rules": install_rules,
+        "msg_files": msg_files,
+        "srv_files": srv_files,
+        "action_files": action_files,
+        "msg_deps": msg_deps,
     }

@@ -1,0 +1,8 @@
+<launch>
+  <arg name="debug" default="false"/>
+
+  <node name="sensor_node" pkg="mixed_pkg" type="sensor_node" output="screen"/>
+  <node name="monitor" pkg="mixed_pkg" type="monitor.py" output="screen">
+    <param name="rate" value="1.0"/>
+  </node>
+</launch>

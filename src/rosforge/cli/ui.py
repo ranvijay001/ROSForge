@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from typing import Generator
+from typing import TYPE_CHECKING, Generator, Sequence
 
 from rich.console import Console
 from rich.panel import Panel
@@ -12,6 +12,9 @@ from rich.table import Table
 from rich.text import Text
 
 from rosforge.models.report import MigrationReport
+
+if TYPE_CHECKING:
+    from rosforge.models.report import AnalysisReport
 
 console = Console()
 
@@ -118,3 +121,121 @@ def create_progress() -> Generator[Progress, None, None]:
         transient=False,
     ) as progress:
         yield progress
+
+
+@contextmanager
+def create_pipeline_progress() -> Generator[Progress, None, None]:
+    """Yield a spinner-style Rich Progress for pipeline stage names.
+
+    Use this when individual stages don't have sub-steps — the spinner
+    indicates activity without requiring a known total.
+    """
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        TimeElapsedColumn(),
+        console=console,
+        transient=True,
+    ) as progress:
+        yield progress
+
+
+def print_diff(
+    original: str,
+    modified: str,
+    filename: str = "",
+    *,
+    console_obj: Console | None = None,
+) -> None:
+    """Print a unified diff between *original* and *modified* using Rich Syntax.
+
+    Args:
+        original: Original file content.
+        modified: Modified file content.
+        filename: Display name for the diff header.
+        console_obj: Optional Console instance (defaults to module-level console).
+    """
+    import difflib  # noqa: PLC0415
+
+    _con = console_obj or console
+
+    diff_lines = list(
+        difflib.unified_diff(
+            original.splitlines(keepends=True),
+            modified.splitlines(keepends=True),
+            fromfile=f"a/{filename}",
+            tofile=f"b/{filename}",
+            lineterm="",
+        )
+    )
+
+    if not diff_lines:
+        _con.print(f"[dim]No changes in {filename}[/dim]")
+        return
+
+    diff_text = "".join(diff_lines)
+
+    try:
+        from rich.syntax import Syntax  # noqa: PLC0415
+
+        syntax = Syntax(diff_text, "diff", theme="monokai", line_numbers=False)
+        _con.print(Panel(syntax, title=f"[bold cyan]Diff: {filename}[/bold cyan]", border_style="dim"))
+    except Exception:  # noqa: BLE001
+        _con.print(Panel(diff_text, title=f"Diff: {filename}", border_style="dim"))
+
+
+def print_analysis_table(report: "AnalysisReport", *, console_obj: Console | None = None) -> None:
+    """Print a Rich table for an AnalysisReport.
+
+    Args:
+        report: The AnalysisReport produced by AnalyzeStage.
+        console_obj: Optional Console instance.
+    """
+    from rich import box  # noqa: PLC0415
+
+    _con = console_obj or console
+
+    risk_color = (
+        "green" if report.risk_score < 0.3
+        else ("yellow" if report.risk_score < 0.6 else "red")
+    )
+    _con.print(
+        Panel(
+            f"[bold]{report.package_name}[/bold]\n\n"
+            f"{report.summary}\n\n"
+            f"Risk: [{risk_color}]{report.risk_score:.2f}[/{risk_color}]  "
+            f"Confidence: [bold]{report.confidence.value}[/bold]  "
+            f"Files: {report.total_files}  Lines: {report.total_lines}",
+            title="[bold cyan]ROSForge Analysis[/bold cyan]",
+            border_style="cyan",
+        )
+    )
+
+    if report.file_complexities:
+        fc_table = Table(title="File Complexity", box=box.SIMPLE_HEAVY)
+        fc_table.add_column("File", style="cyan")
+        fc_table.add_column("Type")
+        fc_table.add_column("Lines", justify="right")
+        fc_table.add_column("API Usages", justify="right")
+        fc_table.add_column("Complexity", justify="center")
+        fc_table.add_column("Strategy")
+        for fc in report.file_complexities:
+            complexity_color = (
+                "green" if fc.estimated_complexity <= 2
+                else ("yellow" if fc.estimated_complexity == 3 else "red")
+            )
+            strategy_style = "yellow" if fc.transform_strategy == "ai_driven" else "green"
+            fc_table.add_row(
+                fc.relative_path,
+                fc.file_type,
+                str(fc.line_count),
+                str(fc.api_usage_count),
+                f"[{complexity_color}]{fc.estimated_complexity}[/{complexity_color}]",
+                f"[{strategy_style}]{fc.transform_strategy}[/{strategy_style}]",
+            )
+        _con.print(fc_table)
+
+    if report.warnings:
+        _con.print("\n[bold yellow]Warnings:[/bold yellow]")
+        for w in report.warnings:
+            _con.print(f"  [yellow]•[/yellow] {w}")

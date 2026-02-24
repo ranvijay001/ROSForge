@@ -113,10 +113,89 @@ class TestConfigCommand:
 
 
 class TestStubCommands:
-    def test_status_exits_nonzero(self):
+    def test_status_exits_nonzero_no_logs(self, tmp_path, monkeypatch):
+        """Status should exit non-zero when no migration logs exist."""
+        monkeypatch.setenv("HOME", str(tmp_path))
         result = runner.invoke(app, ["status"])
         assert result.exit_code != 0
 
-    def test_analyze_exits_nonzero(self, tmp_path):
+    def test_analyze_exits_nonzero_empty_dir(self, tmp_path):
         result = runner.invoke(app, ["analyze", str(tmp_path)])
         assert result.exit_code != 0
+
+
+class TestConfigGetCommand:
+    def _write_config(self, tmp_path):
+        import tomli_w
+        cfg_dir = tmp_path / ".rosforge"
+        cfg_dir.mkdir(parents=True, exist_ok=True)
+        cfg_path = cfg_dir / "config.toml"
+        data = {
+            "engine": {"name": "claude", "mode": "cli",
+                       "timeout_seconds": 300, "api_key": "", "model": ""},
+            "migration": {"target_ros2_distro": "humble", "backup_original": True,
+                          "init_git": True, "output_dir": ""},
+            "validation": {"auto_build": True, "rosdep_install": True, "max_fix_attempts": 0},
+            "telemetry": {"enabled": False, "local_log": True},
+            "verbose": False,
+        }
+        with cfg_path.open("wb") as fh:
+            tomli_w.dump(data, fh)
+
+    def test_config_get_known_key(self, tmp_path, monkeypatch):
+        self._write_config(tmp_path)
+        monkeypatch.setenv("HOME", str(tmp_path))
+        result = runner.invoke(app, ["config", "get", "engine.name"])
+        assert result.exit_code == 0
+        assert "claude" in result.output
+
+    def test_config_get_unknown_key_exits_nonzero(self, tmp_path, monkeypatch):
+        self._write_config(tmp_path)
+        monkeypatch.setenv("HOME", str(tmp_path))
+        result = runner.invoke(app, ["config", "get", "engine.nonexistent"])
+        assert result.exit_code != 0
+
+    def test_config_reset_with_yes_flag(self, tmp_path, monkeypatch):
+        self._write_config(tmp_path)
+        monkeypatch.setenv("HOME", str(tmp_path))
+        result = runner.invoke(app, ["config", "reset", "--yes"])
+        assert result.exit_code == 0
+        assert "defaults" in result.output.lower()
+
+    def test_config_path_shows_path(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("HOME", str(tmp_path))
+        result = runner.invoke(app, ["config", "path"])
+        assert result.exit_code == 0
+        assert "config.toml" in result.output
+
+
+class TestUIFunctions:
+    """Tests for rosforge.cli.ui helper functions."""
+
+    def test_print_diff_no_changes(self) -> None:
+        from io import StringIO
+        from rich.console import Console
+        from rosforge.cli.ui import print_diff
+
+        buf = StringIO()
+        con = Console(file=buf, no_color=True)
+        print_diff("same content", "same content", "file.cpp", console_obj=con)
+        output = buf.getvalue()
+        assert "No changes" in output
+
+    def test_print_diff_with_changes(self) -> None:
+        from io import StringIO
+        from rich.console import Console
+        from rosforge.cli.ui import print_diff
+
+        buf = StringIO()
+        con = Console(file=buf, no_color=True)
+        print_diff("line1\nline2\n", "line1\nchanged\n", "test.cpp", console_obj=con)
+        output = buf.getvalue()
+        assert "test.cpp" in output
+
+    def test_create_pipeline_progress_context(self) -> None:
+        from rosforge.cli.ui import create_pipeline_progress
+        with create_pipeline_progress() as prog:
+            task = prog.add_task("Testing...", total=None)
+            assert task is not None

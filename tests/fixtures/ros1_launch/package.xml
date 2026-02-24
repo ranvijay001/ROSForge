@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<package>
+  <name>robot_launch</name>
+  <version>0.1.0</version>
+  <description>ROS1 package with launch files</description>
+  <maintainer email="dev@example.com">Developer</maintainer>
+  <license>Apache 2.0</license>
+  <buildtool_depend>catkin</buildtool_depend>
+  <run_depend>roscpp</run_depend>
+  <run_depend>std_msgs</run_depend>
+</package>

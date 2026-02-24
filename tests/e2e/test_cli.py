@@ -95,11 +95,30 @@ class TestConfigCommand:
         assert "engine" in result.stdout
 
 
-class TestAnalyzeStub:
-    def test_analyze_not_implemented(self):
+class TestAnalyzeCommand:
+    def test_analyze_exits_zero_on_valid_package(self):
         result = runner.invoke(app, ["analyze", str(ROS1_MINIMAL)])
-        assert result.exit_code == 1
-        assert "not yet implemented" in result.stdout or "not yet implemented" in (result.stderr or "")
+        assert result.exit_code == 0
+
+    def test_analyze_json_flag(self):
+        result = runner.invoke(app, ["analyze", str(ROS1_MINIMAL), "--json"])
+        assert result.exit_code == 0
+        import json
+        data = json.loads(result.stdout)
+        assert "package_name" in data
+
+    def test_analyze_missing_path_fails(self):
+        result = runner.invoke(app, ["analyze", "/nonexistent/path/xyz"])
+        assert result.exit_code != 0
+
+    def test_analyze_output_flag(self, tmp_path):
+        report_file = tmp_path / "report.json"
+        result = runner.invoke(app, ["analyze", str(ROS1_MINIMAL), "--output", str(report_file)])
+        assert result.exit_code == 0
+        assert report_file.exists()
+        import json
+        data = json.loads(report_file.read_text())
+        assert "package_name" in data
 
 
 class TestStatusStub:

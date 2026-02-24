@@ -91,3 +91,66 @@ install(TARGETS talker RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
         cmake = "find_package(catkin REQUIRED COMPONENTS dynamic_reconfigure)\ncatkin_package()\n"
         result = transform_cmake(cmake, ["dynamic_reconfigure"])
         assert "dynamic_reconfigure" not in result
+
+    def test_catkin_python_setup_replaced(self):
+        cmake = (
+            "find_package(catkin REQUIRED COMPONENTS rospy)\n"
+            "catkin_package()\n"
+            "catkin_python_setup()\n"
+        )
+        result = transform_cmake(cmake, ["rospy"])
+        assert "ament_python_install_package(${PROJECT_NAME})" in result
+        assert "catkin_python_setup" not in result
+
+    def test_ament_package_is_last(self):
+        cmake = (
+            "find_package(catkin REQUIRED COMPONENTS roscpp)\n"
+            "catkin_package()\n"
+            "add_executable(node src/node.cpp)\n"
+        )
+        result = transform_cmake(cmake, ["roscpp"])
+        # ament_package() must be the last non-empty content
+        stripped = result.rstrip()
+        assert stripped.endswith("ament_package()")
+
+    def test_rosidl_generate_interfaces_from_msg_files(self):
+        cmake = (
+            "find_package(catkin REQUIRED COMPONENTS std_msgs message_generation)\n"
+            "add_message_files(FILES MyMsg.msg)\n"
+            "generate_messages(DEPENDENCIES std_msgs)\n"
+            "catkin_package()\n"
+        )
+        result = transform_cmake(cmake, ["std_msgs", "message_generation"])
+        assert "rosidl_generate_interfaces" in result
+        assert "MyMsg.msg" in result
+
+    def test_rosidl_generate_interfaces_from_srv_files(self):
+        cmake = (
+            "find_package(catkin REQUIRED COMPONENTS std_msgs message_generation)\n"
+            "add_service_files(FILES MySrv.srv)\n"
+            "generate_messages(DEPENDENCIES std_msgs)\n"
+            "catkin_package()\n"
+        )
+        result = transform_cmake(cmake, ["std_msgs", "message_generation"])
+        assert "rosidl_generate_interfaces" in result
+        assert "MySrv.srv" in result
+
+    def test_catkin_package_bin_destination_remapped(self):
+        cmake = (
+            "find_package(catkin REQUIRED COMPONENTS roscpp)\n"
+            "catkin_package()\n"
+            "install(TARGETS node DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})\n"
+        )
+        result = transform_cmake(cmake, ["roscpp"])
+        assert "lib/${PROJECT_NAME}" in result
+        assert "CATKIN_PACKAGE_BIN_DESTINATION" not in result
+
+    def test_catkin_package_share_destination_remapped(self):
+        cmake = (
+            "find_package(catkin REQUIRED COMPONENTS roscpp)\n"
+            "catkin_package()\n"
+            "install(FILES config.yaml DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})\n"
+        )
+        result = transform_cmake(cmake, ["roscpp"])
+        assert "share/${PROJECT_NAME}" in result
+        assert "CATKIN_PACKAGE_SHARE_DESTINATION" not in result

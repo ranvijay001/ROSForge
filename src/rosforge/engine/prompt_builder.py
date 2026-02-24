@@ -10,13 +10,17 @@ from rosforge.knowledge import (
     ROSPY_TO_RCLPY,
     ROS1_TO_ROS2_PACKAGES,
 )
-from rosforge.models.ir import PackageIR, SourceFile
+from rosforge.models.ir import FileType, PackageIR, SourceFile
 from rosforge.models.plan import MigrationPlan
 
 # Rough token budget (chars / 4).  Most models allow 128 k input tokens.
 _CHARS_PER_TOKEN = 4
 _MODEL_TOKEN_LIMIT = 128_000
 _TOKEN_BUDGET = int(_MODEL_TOKEN_LIMIT * 0.80)  # 80 % of limit
+
+# Per-backend output format hints
+_FORMAT_API = "json"       # structured JSON response
+_FORMAT_CLI = "markdown"   # markdown with fenced JSON block
 
 
 def _format_mapping_table(mapping: dict[str, str], title: str) -> str:
@@ -29,8 +33,123 @@ def _format_mapping_table(mapping: dict[str, str], title: str) -> str:
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------------------
+# Per-file-type system prompt templates
+# ---------------------------------------------------------------------------
+
+_SYSTEM_CPP = """\
+You are an expert C++ ROS1-to-ROS2 migration engineer.
+Transform the provided roscpp source file to its rclcpp equivalent.
+Key rules:
+- Replace #include "ros/ros.h" with #include "rclcpp/rclcpp.hpp"
+- Replace ros::NodeHandle with rclcpp::Node
+- Replace ros::Publisher/Subscriber with rclcpp Publisher/Subscription SharedPtrs
+- Replace ROS_INFO/WARN/ERROR macros with RCLCPP_ equivalents using node->get_logger()
+- Replace ros::spin() with rclcpp::spin(node)
+- Replace ros::Time::now() with node->now()
+- Use node->create_publisher / create_subscription instead of nh.advertise / nh.subscribe
+"""
+
+_SYSTEM_PYTHON = """\
+You are an expert Python ROS1-to-ROS2 migration engineer.
+Transform the provided rospy script to its rclpy equivalent.
+Key rules:
+- Replace import rospy with import rclpy
+- Replace rospy.init_node with rclpy.init() + node = rclpy.create_node()
+- Replace rospy.Publisher/Subscriber with node.create_publisher/create_subscription
+- Replace rospy.loginfo/warn/err with node.get_logger().info/warn/error
+- Replace rospy.spin() with rclpy.spin(node)
+- Replace rospy.Rate with node.create_rate
+- Replace rospy.get_param with node.get_parameter
+"""
+
+_SYSTEM_LAUNCH = """\
+You are an expert ROS1-to-ROS2 launch file migration engineer.
+Convert the provided roslaunch XML file to a Python launch file (ROS2 style).
+Key rules:
+- Output must be a Python file, not XML
+- Use from launch import LaunchDescription
+- Use from launch_ros.actions import Node
+- Map <node> tags to Node() actions
+- Map <include> tags to IncludeLaunchDescription
+- Map <arg> tags to DeclareLaunchArgument
+- Map <param> tags to node parameters dict
+- Map <remap> tags to node remappings list
+"""
+
+_SYSTEM_CMAKE = """\
+You are an expert CMake ROS1-to-ROS2 migration engineer.
+Transform the provided CMakeLists.txt from catkin to ament_cmake.
+Key rules:
+- Replace find_package(catkin REQUIRED COMPONENTS ...) with individual find_package calls
+- Replace catkin_package() with ament_package()
+- Replace catkin_build with ament_cmake build macros
+- Replace include_directories(${catkin_INCLUDE_DIRS}) with target_include_directories
+- Replace target_link_libraries(...${catkin_LIBRARIES}) with ament_target_dependencies
+- Add ament_target_dependencies() calls for ROS2 packages
+"""
+
+_SYSTEM_GENERIC = """\
+You are an expert ROS1-to-ROS2 migration engineer.
+Transform the provided ROS1 source file to its ROS2 equivalent.
+Apply all necessary changes to make the file compatible with ROS2 (Humble or later).
+"""
+
+_FILE_TYPE_SYSTEM_PROMPTS: dict[FileType, str] = {
+    FileType.CPP: _SYSTEM_CPP,
+    FileType.HPP: _SYSTEM_CPP,
+    FileType.PYTHON: _SYSTEM_PYTHON,
+    FileType.LAUNCH_XML: _SYSTEM_LAUNCH,
+    FileType.CMAKE: _SYSTEM_CMAKE,
+}
+
+# Output format instructions per backend
+_OUTPUT_FORMAT_API = (
+    "Return ONLY a valid JSON object with no additional text:\n"
+    "```json\n"
+    "{\n"
+    '  "source_path": "string",\n'
+    '  "target_path": "string",\n'
+    '  "transformed_content": "string",\n'
+    '  "confidence": 0.0,\n'
+    '  "strategy_used": "ai_driven",\n'
+    '  "warnings": ["string"],\n'
+    '  "changes": [\n'
+    '    {"description": "string", "line_range": "string", "reason": "string"}\n'
+    "  ]\n"
+    "}\n"
+    "```"
+)
+
+_OUTPUT_FORMAT_CLI = (
+    "Return your response as a markdown code block containing a JSON object:\n"
+    "```json\n"
+    "{\n"
+    '  "source_path": "string",\n'
+    '  "target_path": "string",\n'
+    '  "transformed_content": "string",\n'
+    '  "confidence": 0.0,\n'
+    '  "strategy_used": "ai_driven",\n'
+    '  "warnings": ["string"],\n'
+    '  "changes": [\n'
+    '    {"description": "string", "line_range": "string", "reason": "string"}\n'
+    "  ]\n"
+    "}\n"
+    "```"
+)
+
+
 class PromptBuilder:
     """Build system/user prompt pairs for AI transform and analyze tasks."""
+
+    def __init__(self, backend_mode: str = "api") -> None:
+        """Initialise the PromptBuilder.
+
+        Args:
+            backend_mode: Either ``"api"`` (structured JSON response expected)
+                          or ``"cli"`` (markdown fenced block expected).
+        """
+        self._backend_mode = backend_mode
 
     # ------------------------------------------------------------------
     # Token helpers
@@ -48,11 +167,25 @@ class PromptBuilder:
         """
         return max(0, len(text) // _CHARS_PER_TOKEN)
 
+    @staticmethod
+    def estimate_file_tokens(file: SourceFile) -> int:
+        """Estimate tokens required to include a source file in a prompt.
+
+        Accounts for file content plus per-file overhead (path header, fences).
+
+        Args:
+            file: SourceFile with content populated.
+
+        Returns:
+            Estimated token count.
+        """
+        overhead = 50  # path header, code fences, etc.
+        return max(0, len(file.content) // _CHARS_PER_TOKEN) + overhead
+
     def _truncate_if_needed(self, text: str, budget_tokens: int) -> str:
-        """Strip trailing comment blocks if text would exceed budget."""
+        """Strip trailing content if text would exceed budget."""
         if self.estimate_tokens(text) <= budget_tokens:
             return text
-        # Truncate to fit; add notice
         max_chars = budget_tokens * _CHARS_PER_TOKEN
         return text[:max_chars] + "\n/* ... truncated to fit token budget ... */"
 
@@ -67,6 +200,40 @@ class PromptBuilder:
         pkg_table = _format_mapping_table(ROS1_TO_ROS2_PACKAGES, "Package Name Mappings")
         parts = [s for s in [cpp_table, py_table, cmake_table, pkg_table] if s]
         return "\n\n".join(parts)
+
+    def _knowledge_section_for_type(self, file_type: FileType) -> str:
+        """Return a knowledge section relevant to the given file type."""
+        if file_type in (FileType.CPP, FileType.HPP):
+            cpp_table = _format_mapping_table(
+                ROSCPP_TO_RCLCPP, "C++ API Mappings (roscpp → rclcpp)"
+            )
+            pkg_table = _format_mapping_table(ROS1_TO_ROS2_PACKAGES, "Package Name Mappings")
+            return "\n\n".join(filter(None, [cpp_table, pkg_table]))
+
+        if file_type == FileType.PYTHON:
+            py_table = _format_mapping_table(
+                ROSPY_TO_RCLPY, "Python API Mappings (rospy → rclpy)"
+            )
+            pkg_table = _format_mapping_table(ROS1_TO_ROS2_PACKAGES, "Package Name Mappings")
+            return "\n\n".join(filter(None, [py_table, pkg_table]))
+
+        if file_type == FileType.CMAKE:
+            cmake_table = _format_mapping_table(
+                CATKIN_TO_AMENT, "CMake Mappings (catkin → ament)"
+            )
+            return cmake_table
+
+        # Default: include all tables
+        return self._knowledge_section()
+
+    # ------------------------------------------------------------------
+    # Output format helper
+    # ------------------------------------------------------------------
+
+    def _output_format_instructions(self) -> str:
+        if self._backend_mode == "api":
+            return _OUTPUT_FORMAT_API
+        return _OUTPUT_FORMAT_CLI
 
     # ------------------------------------------------------------------
     # Analyze prompts
@@ -152,6 +319,9 @@ class PromptBuilder:
     ) -> tuple[str, str]:
         """Build prompts for the Transform stage (single file).
 
+        Selects a per-file-type system prompt and injects only the relevant
+        knowledge base tables to minimise token usage.
+
         Args:
             source_file: The source file to transform.
             plan: The migration plan for context.
@@ -160,27 +330,17 @@ class PromptBuilder:
         Returns:
             (system_prompt, user_prompt) tuple of strings.
         """
+        # Per-file-type system prompt
+        base_system = _FILE_TYPE_SYSTEM_PROMPTS.get(source_file.file_type, _SYSTEM_GENERIC)
+        knowledge = self._knowledge_section_for_type(source_file.file_type)
+        output_format = self._output_format_instructions()
+
         system_prompt = (
-            "You are an expert ROS1-to-ROS2 migration engineer.\n"
-            "Transform the provided ROS1 source file to its ROS2 equivalent.\n\n"
-            "## Knowledge Base\n\n"
-            + self._knowledge_section()
-            + "\n\n"
-            "## Output Format\n\n"
-            "Return a single JSON object:\n"
-            "```json\n"
-            "{\n"
-            '  "source_path": "string",\n'
-            '  "target_path": "string",\n'
-            '  "transformed_content": "string",\n'
-            '  "confidence": 0.0,\n'
-            '  "strategy_used": "ai_driven",\n'
-            '  "warnings": ["string"],\n'
-            '  "changes": [\n'
-            '    {"description": "string", "line_range": "string", "reason": "string"}\n'
-            "  ]\n"
-            "}\n"
-            "```"
+            base_system
+            + "\n\n## Knowledge Base\n\n"
+            + knowledge
+            + "\n\n## Output Format\n\n"
+            + output_format
         )
 
         # Find the action for this file
@@ -204,6 +364,55 @@ class PromptBuilder:
             f"File: `{source_file.relative_path}` ({source_file.file_type})\n"
             f"Migration hint: {action_hint}\n\n"
             f"## Source Content\n\n```\n{content}\n```"
+        )
+
+        return system_prompt, user_prompt
+
+    # ------------------------------------------------------------------
+    # Fix prompt (stub for future fix loop)
+    # ------------------------------------------------------------------
+
+    def build_fix_prompt(
+        self,
+        source_file: SourceFile,
+        transformed_content: str,
+        error_message: str,
+    ) -> tuple[str, str]:
+        """Build prompts for fixing a failed or low-confidence transformation.
+
+        This is a stub intended for use in a future fix loop where the AI
+        is asked to correct its own output after validation failures.
+
+        Args:
+            source_file: The original source file.
+            transformed_content: The previously transformed (broken) content.
+            error_message: The error or validation failure message.
+
+        Returns:
+            (system_prompt, user_prompt) tuple of strings.
+        """
+        base_system = _FILE_TYPE_SYSTEM_PROMPTS.get(source_file.file_type, _SYSTEM_GENERIC)
+        output_format = self._output_format_instructions()
+
+        system_prompt = (
+            base_system
+            + "\n\nYou previously transformed a ROS1 file but the result had issues. "
+            "Fix the problems described below and return the corrected transformation.\n\n"
+            "## Output Format\n\n"
+            + output_format
+        )
+
+        system_tokens = self.estimate_tokens(system_prompt)
+        budget = (_TOKEN_BUDGET - system_tokens - 500) // 2  # split budget between original and transformed
+        original = self._truncate_if_needed(source_file.content, budget)
+        transformed = self._truncate_if_needed(transformed_content, budget)
+
+        user_prompt = (
+            f"Fix the transformation for: `{source_file.relative_path}`\n\n"
+            f"## Error / Validation Failure\n\n{error_message}\n\n"
+            f"## Original ROS1 Source\n\n```\n{original}\n```\n\n"
+            f"## Previous (Broken) ROS2 Output\n\n```\n{transformed}\n```\n\n"
+            "Return the corrected transformation."
         )
 
         return system_prompt, user_prompt

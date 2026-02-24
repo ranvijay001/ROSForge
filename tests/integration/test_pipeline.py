@@ -71,15 +71,29 @@ class TestAnalyzeStage:
 
 
 class TestValidateStage:
-    def test_validate_stub_always_passes(self, tmp_output, default_config):
+    def test_validate_skips_when_auto_build_false(self, tmp_output, default_config):
+        from rosforge.models.config import ValidationConfig
+        config = RosForgeConfig(validation=ValidationConfig(auto_build=False))
+        ctx = PipelineContext(
+            source_path=ROS1_MINIMAL,
+            output_path=tmp_output,
+            config=config,
+        )
+        ValidateStage().execute(ctx)
+        assert ctx.validation_result is not None
+        assert ctx.validation_result.success is True
+
+    def test_validate_fails_gracefully_without_colcon(self, tmp_output, default_config):
+        from unittest.mock import patch
         ctx = PipelineContext(
             source_path=ROS1_MINIMAL,
             output_path=tmp_output,
             config=default_config,
         )
-        ValidateStage().execute(ctx)
+        with patch("shutil.which", return_value=None):
+            ValidateStage().execute(ctx)
         assert ctx.validation_result is not None
-        assert ctx.validation_result.success is True
+        # colcon not found — should fail gracefully, not crash
 
 
 class TestTransformStageRuleBased:

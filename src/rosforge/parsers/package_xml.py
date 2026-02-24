@@ -20,6 +20,11 @@ _DEP_TAG_MAP: dict[str, DependencyType] = {
     "test_depend": DependencyType.TEST,
 }
 
+# Format 1 only: run_depend maps to exec_depend
+_FORMAT1_EXTRA_TAG_MAP: dict[str, DependencyType] = {
+    "run_depend": DependencyType.EXEC,
+}
+
 
 def parse_package_xml(path: Path) -> tuple[PackageMetadata, list[Dependency]]:
     """Parse a package.xml file and return metadata and dependencies.
@@ -45,11 +50,16 @@ def parse_package_xml(path: Path) -> tuple[PackageMetadata, list[Dependency]]:
     def _text_list(tag: str) -> list[str]:
         return [el.text.strip() for el in root.findall(tag) if el.text]
 
-    format_version = 2
+    format_version = 1
     try:
-        format_version = int(root.get("format", "2"))
+        fmt_attr = root.get("format")
+        if fmt_attr is not None:
+            format_version = int(fmt_attr)
+        else:
+            # Missing format attribute defaults to format 1 per REP-0127
+            format_version = 1
     except (ValueError, TypeError):
-        pass
+        format_version = 1
 
     metadata = PackageMetadata(
         name=_text("name"),
@@ -63,7 +73,13 @@ def parse_package_xml(path: Path) -> tuple[PackageMetadata, list[Dependency]]:
     )
 
     dependencies: list[Dependency] = []
-    for tag, dep_type in _DEP_TAG_MAP.items():
+
+    # Build combined tag map: format 1 also supports run_depend
+    combined_map = dict(_DEP_TAG_MAP)
+    if format_version == 1:
+        combined_map.update(_FORMAT1_EXTRA_TAG_MAP)
+
+    for tag, dep_type in combined_map.items():
         for el in root.findall(tag):
             name = el.text.strip() if el.text else ""
             if not name:

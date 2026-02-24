@@ -1,0 +1,24 @@
+<launch>
+  <arg name="use_sim_time" default="false" doc="Use simulation time"/>
+
+  <param name="/use_sim_time" value="$(arg use_sim_time)"/>
+
+  <node pkg="roscpp_tutorials" type="talker" name="talker" output="screen">
+    <param name="rate" value="10"/>
+    <remap from="chatter" to="/talker/chatter"/>
+  </node>
+
+  <node pkg="roscpp_tutorials" type="listener" name="listener" output="screen">
+    <remap from="chatter" to="/talker/chatter"/>
+  </node>
+
+  <group ns="sensors">
+    <node pkg="sensor_pkg" type="sensor_node" name="sensor"/>
+  </group>
+
+  <include file="$(find some_pkg)/launch/extra.launch">
+    <arg name="debug" value="false"/>
+  </include>
+
+  <rosparam command="load" file="$(find some_pkg)/config/params.yaml"/>
+</launch>

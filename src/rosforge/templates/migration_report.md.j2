@@ -1,0 +1,139 @@
+# ROSForge Migration Report — `{{ pkg_name }}`
+
+**Generated:** {{ generated_at }}
+**Target:** ROS 2 {{ target_distro }}
+**Source:** `{{ source_path }}`
+**Output:** `{{ output_path }}`
+{% if duration_seconds %}**Duration:** {{ "%.1f"|format(duration_seconds) }}s{% endif %}
+
+---
+
+## Summary
+
+{% if migration_plan %}
+{{ migration_plan.summary }}
+
+**Overall Confidence:** {{ confidence_label }} ({{ "%.2f"|format(migration_plan.overall_confidence) }})
+{% if migration_plan.warnings %}
+
+### Warnings
+{% for w in migration_plan.warnings %}
+- {{ w }}
+{% endfor %}
+{% endif %}
+{% else %}
+No migration plan available.
+{% endif %}
+
+---
+
+## Confidence Table
+
+| Level | Files | Description |
+|-------|-------|-------------|
+| HIGH (≥0.8) | {{ high_conf_count }} | Automated migration with high certainty |
+| MEDIUM (0.5–0.8) | {{ medium_conf_count }} | Automated with caveats — review recommended |
+| LOW (<0.5) | {{ low_conf_count }} | Manual review required |
+
+---
+{% if cost_estimate %}
+
+## Cost Estimate
+
+| Metric | Value |
+|--------|-------|
+| Estimated tokens | {{ cost_estimate.estimated_tokens }} |
+| Estimated cost (USD) | ${{ "%.4f"|format(cost_estimate.estimated_cost_usd) }} |
+| Engine | {{ cost_estimate.engine }} |
+
+---
+{% endif %}
+
+## Transformed Files
+
+| File | Strategy | Confidence | Changes | Warnings |
+|------|----------|------------|---------|----------|
+{% for tf in transformed_files %}
+| `{{ tf.source_path }}` | {{ tf.strategy_used }} | {{ confidence_label_for(tf.confidence) }} ({{ "%.2f"|format(tf.confidence) }}) | {{ tf.changes|length }} | {{ tf.warnings|length }} |
+{% endfor %}
+
+---
+
+## Change Details
+
+{% for tf in transformed_files %}
+{% if tf.changes %}
+### `{{ tf.source_path }}`
+
+{% for ch in tf.changes %}
+- {{ ch.description }}{% if ch.line_range %} (lines {{ ch.line_range }}){% endif %}{% if ch.reason %} — {{ ch.reason }}{% endif %}
+
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% if warn_files %}
+
+---
+
+## File Warnings
+
+{% for tf in warn_files %}
+### `{{ tf.source_path }}`
+
+{% for w in tf.warnings %}
+- {{ w }}
+{% endfor %}
+{% endfor %}
+{% endif %}
+{% if git_diff_stat %}
+
+---
+
+## Git Diff Summary
+
+```
+{{ git_diff_stat }}
+```
+{% endif %}
+{% if manual_actions or low_conf_files %}
+
+---
+
+## Manual Action Required
+
+{% for a in manual_actions %}
+- `{{ a.source_path }}`: {{ a.description }}
+{% endfor %}
+{% for tf in low_conf_files %}
+- `{{ tf.source_path }}`: low confidence ({{ "%.2f"|format(tf.confidence) }}) — review carefully
+{% endfor %}
+{% endif %}
+{% if errors %}
+
+---
+
+## Pipeline Errors
+
+{% for err in errors %}
+- **[{{ err.stage_name }}]** ({{ "recoverable" if err.recoverable else "FATAL" }}): {{ err.message }}
+{% endfor %}
+{% endif %}
+{% if validation_result %}
+
+---
+
+## Build Validation
+
+**Status:** {{ "PASSED" if validation_result.success else "FAILED" }}
+**Duration:** {{ "%.1f"|format(validation_result.duration_seconds) }}s
+**Errors:** {{ validation_result.error_count }}
+**Warnings:** {{ validation_result.warning_count }}
+
+{% if not validation_result.success and validation_result.build_errors %}
+### Build Errors
+
+{% for be in validation_result.build_errors %}
+- `{{ be.file_path }}:{{ be.line_number }}` [{{ be.severity }}]: {{ be.message }}
+{% endfor %}
+{% endif %}
+{% endif %}

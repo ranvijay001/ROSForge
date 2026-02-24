@@ -141,3 +141,124 @@ class TestTransformPackageXml:
         root = _parse(xml)
         maintainers = root.findall("maintainer")
         assert len(maintainers) == 2
+
+
+class TestMetapackageSupport:
+    def test_metapackage_member_of_group_in_export(self):
+        xml = transform_package_xml(_make_metadata(name="meta_pkg"), [], is_metapackage=True)
+        root = _parse(xml)
+        export = root.find("export")
+        assert export is not None
+        groups = [el.text for el in export.findall("member_of_group")]
+        assert "meta_pkg" in groups
+
+    def test_non_metapackage_no_member_of_group(self):
+        xml = transform_package_xml(_make_metadata(), [])
+        root = _parse(xml)
+        export = root.find("export")
+        assert export is not None
+        assert export.find("member_of_group") is None
+
+    def test_group_membership_list(self):
+        xml = transform_package_xml(
+            _make_metadata(), [], group_membership=["ros_base", "desktop"]
+        )
+        root = _parse(xml)
+        export = root.find("export")
+        groups = [el.text for el in export.findall("member_of_group")]
+        assert "ros_base" in groups
+        assert "desktop" in groups
+
+
+class TestBuildtoolCondition:
+    def test_buildtool_condition_preserved(self):
+        deps = [
+            Dependency(
+                name="catkin",
+                dep_type=DependencyType.BUILDTOOL,
+                condition="$ROS_VERSION == 1",
+            )
+        ]
+        xml = transform_package_xml(_make_metadata(), deps)
+        root = _parse(xml)
+        bt = root.find("buildtool_depend")
+        assert bt is not None
+        assert bt.get("condition") == "$ROS_VERSION == 1"
+
+    def test_buildtool_no_condition_when_not_set(self):
+        xml = transform_package_xml(_make_metadata(), [])
+        root = _parse(xml)
+        bt = root.find("buildtool_depend")
+        assert bt is not None
+        assert bt.get("condition") is None
+
+
+class TestFormat1Support:
+    def test_normalize_format1_run_depend(self):
+        from rosforge.knowledge.package_xml_rules import normalize_format1_dependencies
+
+        raw = [{"tag": "run_depend", "name": "roscpp"}]
+        deps = normalize_format1_dependencies(raw)
+        assert len(deps) == 1
+        assert deps[0].dep_type.value == "exec_depend"
+        assert deps[0].name == "roscpp"
+
+    def test_normalize_format1_build_depend(self):
+        from rosforge.knowledge.package_xml_rules import normalize_format1_dependencies
+
+        raw = [{"tag": "build_depend", "name": "std_msgs"}]
+        deps = normalize_format1_dependencies(raw)
+        assert deps[0].dep_type.value == "build_depend"
+
+    def test_normalize_format1_mixed(self):
+        from rosforge.knowledge.package_xml_rules import normalize_format1_dependencies
+
+        raw = [
+            {"tag": "build_depend", "name": "roscpp"},
+            {"tag": "run_depend", "name": "rospy"},
+            {"tag": "buildtool_depend", "name": "catkin"},
+        ]
+        deps = normalize_format1_dependencies(raw)
+        assert len(deps) == 3
+
+    def test_normalize_format1_empty_name_skipped(self):
+        from rosforge.knowledge.package_xml_rules import normalize_format1_dependencies
+
+        raw = [{"tag": "build_depend", "name": ""}]
+        deps = normalize_format1_dependencies(raw)
+        assert len(deps) == 0
+
+
+class TestExpandedPackageMappings:
+    def test_at_least_50_entries(self):
+        assert len(ROS1_TO_ROS2_PACKAGES) >= 50
+
+    def test_actionlib_mapped(self):
+        assert ROS1_TO_ROS2_PACKAGES["actionlib"] == "rclcpp_action"
+
+    def test_pluginlib_mapped(self):
+        assert ROS1_TO_ROS2_PACKAGES["pluginlib"] == "pluginlib"
+
+    def test_image_transport_mapped(self):
+        assert ROS1_TO_ROS2_PACKAGES["image_transport"] == "image_transport"
+
+    def test_cv_bridge_mapped(self):
+        assert ROS1_TO_ROS2_PACKAGES["cv_bridge"] == "cv_bridge"
+
+    def test_tf_mapped(self):
+        assert ROS1_TO_ROS2_PACKAGES["tf"] == "tf2_ros"
+
+    def test_nodelet_mapped(self):
+        assert ROS1_TO_ROS2_PACKAGES["nodelet"] == "rclcpp_components"
+
+    def test_rosbag_mapped(self):
+        assert ROS1_TO_ROS2_PACKAGES["rosbag"] == "rosbag2_cpp"
+
+    def test_rostest_mapped(self):
+        assert ROS1_TO_ROS2_PACKAGES["rostest"] == "ament_cmake_gtest"
+
+    def test_robot_state_publisher_mapped(self):
+        assert ROS1_TO_ROS2_PACKAGES["robot_state_publisher"] == "robot_state_publisher"
+
+    def test_std_srvs_mapped(self):
+        assert ROS1_TO_ROS2_PACKAGES["std_srvs"] == "std_srvs"
