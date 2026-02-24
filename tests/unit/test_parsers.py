@@ -63,7 +63,9 @@ class TestCMakeParser:
     def test_cmake_detects_catkin(self):
         result = parse_cmake(ROS1_MINIMAL / "CMakeLists.txt")
         # Should detect catkin as a component
-        components = getattr(result, "catkin_components", None) or getattr(result, "components", None)
+        components = getattr(result, "catkin_components", None) or getattr(
+            result, "components", None
+        )
         if components is not None:
             assert "roscpp" in components or "std_msgs" in components
 

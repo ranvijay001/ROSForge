@@ -43,7 +43,7 @@ def is_catkin_workspace(path: Path) -> bool:
             text = root_cmake.read_text(encoding="utf-8", errors="replace")
             if "catkin_workspace()" in text:
                 return True
-        except Exception:  # noqa: BLE001
+        except Exception:
             pass
 
     return False

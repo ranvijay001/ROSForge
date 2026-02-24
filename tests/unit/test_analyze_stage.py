@@ -27,7 +27,6 @@ from rosforge.pipeline.analyze import (
 from rosforge.pipeline.runner import PipelineContext
 from rosforge.pipeline.stage import PipelineError
 
-
 # ---------------------------------------------------------------------------
 # Helper factories
 # ---------------------------------------------------------------------------
@@ -146,6 +145,7 @@ class TestResolveDependency:
     def test_known_ros1_dep_maps_correctly(self):
         # roscpp is a well-known ROS1 dep
         from rosforge.knowledge import ROS1_TO_ROS2_PACKAGES
+
         if "roscpp" in ROS1_TO_ROS2_PACKAGES:
             report = _resolve_dependency("roscpp")
             assert report.available_in_ros2
@@ -194,6 +194,7 @@ class TestAnalyzeStage:
         assert not ctx.fatal_errors
         assert ctx.analysis_report
         import json
+
         data = json.loads(ctx.analysis_report)
         assert data["package_name"] == "test_pkg"
         assert data["total_files"] == 2
@@ -221,18 +222,15 @@ class TestAnalyzeStage:
         AnalyzeStage().execute(ctx)
 
         import json
+
         data = json.loads(ctx.analysis_report)
         assert any("launch" in w.lower() for w in data["warnings"])
 
     def test_high_risk_package_has_low_confidence(self):
         # Many files with many API usages -> high risk -> low confidence
-        files = [
-            _make_source_file(f"src/node{i}.cpp", FileType.CPP, 1000, 25)
-            for i in range(5)
-        ]
+        files = [_make_source_file(f"src/node{i}.cpp", FileType.CPP, 1000, 25) for i in range(5)]
         deps = [
-            Dependency(name=f"missing_dep_{i}", dep_type=DependencyType.BUILD)
-            for i in range(5)
+            Dependency(name=f"missing_dep_{i}", dep_type=DependencyType.BUILD) for i in range(5)
         ]
         ir = _make_ir(source_files=files, dependencies=deps)
         ctx = _make_ctx(ir=ir)
@@ -240,6 +238,7 @@ class TestAnalyzeStage:
         AnalyzeStage().execute(ctx)
 
         import json
+
         data = json.loads(ctx.analysis_report)
         assert data["confidence"] in ("low", "medium")
 
@@ -251,5 +250,6 @@ class TestAnalyzeStage:
         AnalyzeStage().execute(ctx)
 
         import json
+
         data = json.loads(ctx.analysis_report)
         assert data["confidence"] == "high"

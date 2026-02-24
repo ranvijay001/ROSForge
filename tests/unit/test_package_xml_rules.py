@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import pytest
 from xml.etree import ElementTree as ET
+
+import pytest
 
 from rosforge.knowledge.package_xml_rules import (
     ROS1_TO_ROS2_PACKAGES,
@@ -135,9 +136,7 @@ class TestTransformPackageXml:
         assert xml.startswith('<?xml version="1.0"?>')
 
     def test_multiple_maintainers(self):
-        xml = transform_package_xml(
-            _make_metadata(maintainers=["Alice", "Bob"]), []
-        )
+        xml = transform_package_xml(_make_metadata(maintainers=["Alice", "Bob"]), [])
         root = _parse(xml)
         maintainers = root.findall("maintainer")
         assert len(maintainers) == 2
@@ -160,9 +159,7 @@ class TestMetapackageSupport:
         assert export.find("member_of_group") is None
 
     def test_group_membership_list(self):
-        xml = transform_package_xml(
-            _make_metadata(), [], group_membership=["ros_base", "desktop"]
-        )
+        xml = transform_package_xml(_make_metadata(), [], group_membership=["ros_base", "desktop"])
         root = _parse(xml)
         export = root.find("export")
         groups = [el.text for el in export.findall("member_of_group")]

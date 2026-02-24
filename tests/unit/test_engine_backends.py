@@ -12,15 +12,15 @@ from rosforge.models.ir import FileType, PackageIR, PackageMetadata, SourceFile
 from rosforge.models.plan import MigrationPlan, TransformAction, TransformStrategy
 from rosforge.models.result import SubprocessResult
 
-
 # ── Shared fixtures ────────────────────────────────────────────────────────────
+
 
 @pytest.fixture()
 def sample_ir() -> PackageIR:
     sf = SourceFile(
         relative_path="src/talker.cpp",
         file_type=FileType.CPP,
-        content='#include <ros/ros.h>\nint main() { ros::init(); }',
+        content="#include <ros/ros.h>\nint main() { ros::init(); }",
         line_count=2,
     )
     return PackageIR(
@@ -64,9 +64,11 @@ VALID_TRANSFORM_JSON = '{"source_path":"src/talker.cpp","target_path":"src/talke
 
 # ── GeminiCLIEngine tests ──────────────────────────────────────────────────────
 
+
 class TestGeminiCLIEngine:
     def _make_engine(self, config: EngineConfig):
         from rosforge.engine.gemini.cli_backend import GeminiCLIEngine
+
         return GeminiCLIEngine(config)
 
     def test_health_check_success(self, cli_config):
@@ -83,7 +85,8 @@ class TestGeminiCLIEngine:
 
     def test_analyze_calls_subprocess(self, cli_config, sample_ir):
         mock_result = SubprocessResult(
-            status="success", exit_code=0,
+            status="success",
+            exit_code=0,
             raw_stdout=VALID_ANALYZE_JSON,
             parsed_json={"package_name": "test_pkg"},
         )
@@ -94,7 +97,8 @@ class TestGeminiCLIEngine:
 
     def test_transform_calls_subprocess(self, cli_config, sample_ir, sample_plan):
         mock_result = SubprocessResult(
-            status="success", exit_code=0,
+            status="success",
+            exit_code=0,
             raw_stdout=VALID_TRANSFORM_JSON,
             parsed_json={"source_path": "src/talker.cpp"},
         )
@@ -107,7 +111,8 @@ class TestGeminiCLIEngine:
 
     def test_analyze_timeout_raises(self, cli_config, sample_ir):
         mock_result = SubprocessResult(
-            status="timeout", exit_code=-1,
+            status="timeout",
+            exit_code=-1,
             error_message="Command timed out after 10s",
         )
         with patch("rosforge.engine.gemini.cli_backend.run_command", return_value=mock_result):
@@ -117,7 +122,8 @@ class TestGeminiCLIEngine:
 
     def test_analyze_error_raises(self, cli_config, sample_ir):
         mock_result = SubprocessResult(
-            status="error", exit_code=1,
+            status="error",
+            exit_code=1,
             error_message="gemini not found",
         )
         with patch("rosforge.engine.gemini.cli_backend.run_command", return_value=mock_result):
@@ -136,12 +142,16 @@ class TestGeminiCLIEngine:
     def test_model_arg_included(self, sample_ir):
         config = EngineConfig(name="gemini", mode="cli", timeout_seconds=10, model="gemini-1.5-pro")
         mock_result = SubprocessResult(
-            status="success", exit_code=0,
+            status="success",
+            exit_code=0,
             raw_stdout=VALID_ANALYZE_JSON,
             parsed_json={},
         )
-        with patch("rosforge.engine.gemini.cli_backend.run_command", return_value=mock_result) as mock_cmd:
+        with patch(
+            "rosforge.engine.gemini.cli_backend.run_command", return_value=mock_result
+        ) as mock_cmd:
             from rosforge.engine.gemini.cli_backend import GeminiCLIEngine
+
             engine = GeminiCLIEngine(config)
             engine.analyze(sample_ir)
             call_args = mock_cmd.call_args[0][0]
@@ -151,6 +161,7 @@ class TestGeminiCLIEngine:
 
 # ── GeminiAPIEngine tests ──────────────────────────────────────────────────────
 
+
 class TestGeminiAPIEngine:
     def _make_engine_with_mock_genai(self, config: EngineConfig):
         mock_genai = MagicMock()
@@ -158,44 +169,58 @@ class TestGeminiAPIEngine:
         with patch.dict("sys.modules", {"google.generativeai": mock_genai}):
             # Re-import with mock
             import importlib
+
             import rosforge.engine.gemini.api_backend as mod
+
             # Patch the module-level flag
-            with patch.object(mod, "_GENAI_AVAILABLE", True), \
-                 patch.object(mod, "genai", mock_genai):
+            with (
+                patch.object(mod, "_GENAI_AVAILABLE", True),
+                patch.object(mod, "genai", mock_genai),
+            ):
                 from rosforge.engine.gemini.api_backend import GeminiAPIEngine
+
                 engine = GeminiAPIEngine.__new__(GeminiAPIEngine)
                 engine._config = config
-                engine._builder = __import__("rosforge.engine.prompt_builder", fromlist=["PromptBuilder"]).PromptBuilder()
+                engine._builder = __import__(
+                    "rosforge.engine.prompt_builder", fromlist=["PromptBuilder"]
+                ).PromptBuilder()
                 engine._model_name = config.model or "gemini-1.5-pro"
                 engine._genai = mock_genai
                 return engine, mock_genai
 
     def test_import_error_without_sdk(self, api_config):
         import rosforge.engine.gemini.api_backend as mod
+
         with patch.object(mod, "_GENAI_AVAILABLE", False):
             from rosforge.engine.gemini.api_backend import GeminiAPIEngine
+
             with pytest.raises(ImportError, match="google-genai"):
                 GeminiAPIEngine(api_config)
 
     def test_estimate_cost_returns_estimate(self, api_config):
         import rosforge.engine.gemini.api_backend as mod
+
         mock_genai = MagicMock()
-        with patch.object(mod, "_GENAI_AVAILABLE", True), \
-             patch.object(mod, "genai", mock_genai):
+        with patch.object(mod, "_GENAI_AVAILABLE", True), patch.object(mod, "genai", mock_genai):
             from rosforge.engine.gemini.api_backend import GeminiAPIEngine
+
             engine = GeminiAPIEngine.__new__(GeminiAPIEngine)
             engine._config = api_config
-            engine._builder = __import__("rosforge.engine.prompt_builder", fromlist=["PromptBuilder"]).PromptBuilder()
+            engine._builder = __import__(
+                "rosforge.engine.prompt_builder", fromlist=["PromptBuilder"]
+            ).PromptBuilder()
             engine._model_name = "gemini-1.5-pro"
             sample_ir_local = PackageIR(
                 source_path=Path("/tmp/pkg"),
                 metadata=PackageMetadata(name="test_pkg", version="0.1.0"),
-                source_files=[SourceFile(
-                    relative_path="src/talker.cpp",
-                    file_type=FileType.CPP,
-                    content="int main() {}",
-                    line_count=1,
-                )],
+                source_files=[
+                    SourceFile(
+                        relative_path="src/talker.cpp",
+                        file_type=FileType.CPP,
+                        content="int main() {}",
+                        line_count=1,
+                    )
+                ],
                 total_files=1,
                 total_lines=1,
                 cpp_files=1,
@@ -206,6 +231,7 @@ class TestGeminiAPIEngine:
 
     def test_analyze_calls_api(self, api_config):
         import rosforge.engine.gemini.api_backend as mod
+
         mock_genai = MagicMock()
         mock_model_instance = MagicMock()
         mock_response = MagicMock()
@@ -217,29 +243,34 @@ class TestGeminiAPIEngine:
         sample_ir_local = PackageIR(
             source_path=Path("/tmp/pkg"),
             metadata=PackageMetadata(name="test_pkg", version="0.1.0"),
-            source_files=[SourceFile(
-                relative_path="src/talker.cpp",
-                file_type=FileType.CPP,
-                content="int main() {}",
-                line_count=1,
-            )],
+            source_files=[
+                SourceFile(
+                    relative_path="src/talker.cpp",
+                    file_type=FileType.CPP,
+                    content="int main() {}",
+                    line_count=1,
+                )
+            ],
             total_files=1,
             total_lines=1,
             cpp_files=1,
         )
 
-        with patch.object(mod, "_GENAI_AVAILABLE", True), \
-             patch.object(mod, "genai", mock_genai):
+        with patch.object(mod, "_GENAI_AVAILABLE", True), patch.object(mod, "genai", mock_genai):
             from rosforge.engine.gemini.api_backend import GeminiAPIEngine
+
             engine = GeminiAPIEngine.__new__(GeminiAPIEngine)
             engine._config = api_config
-            engine._builder = __import__("rosforge.engine.prompt_builder", fromlist=["PromptBuilder"]).PromptBuilder()
+            engine._builder = __import__(
+                "rosforge.engine.prompt_builder", fromlist=["PromptBuilder"]
+            ).PromptBuilder()
             engine._model_name = "gemini-1.5-pro"
             plan = engine.analyze(sample_ir_local)
             assert plan.package_name == "test_pkg"
 
     def test_health_check_success(self, api_config):
         import rosforge.engine.gemini.api_backend as mod
+
         mock_genai = MagicMock()
         mock_model_instance = MagicMock()
         mock_response = MagicMock()
@@ -247,9 +278,9 @@ class TestGeminiAPIEngine:
         mock_model_instance.generate_content.return_value = mock_response
         mock_genai.GenerativeModel.return_value = mock_model_instance
 
-        with patch.object(mod, "_GENAI_AVAILABLE", True), \
-             patch.object(mod, "genai", mock_genai):
+        with patch.object(mod, "_GENAI_AVAILABLE", True), patch.object(mod, "genai", mock_genai):
             from rosforge.engine.gemini.api_backend import GeminiAPIEngine
+
             engine = GeminiAPIEngine.__new__(GeminiAPIEngine)
             engine._config = api_config
             engine._builder = MagicMock()
@@ -258,14 +289,15 @@ class TestGeminiAPIEngine:
 
     def test_health_check_failure(self, api_config):
         import rosforge.engine.gemini.api_backend as mod
+
         mock_genai = MagicMock()
         mock_model_instance = MagicMock()
         mock_model_instance.generate_content.side_effect = Exception("API error")
         mock_genai.GenerativeModel.return_value = mock_model_instance
 
-        with patch.object(mod, "_GENAI_AVAILABLE", True), \
-             patch.object(mod, "genai", mock_genai):
+        with patch.object(mod, "_GENAI_AVAILABLE", True), patch.object(mod, "genai", mock_genai):
             from rosforge.engine.gemini.api_backend import GeminiAPIEngine
+
             engine = GeminiAPIEngine.__new__(GeminiAPIEngine)
             engine._config = api_config
             engine._builder = MagicMock()
@@ -275,9 +307,11 @@ class TestGeminiAPIEngine:
 
 # ── OpenAICLIEngine tests ──────────────────────────────────────────────────────
 
+
 class TestOpenAICLIEngine:
     def _make_engine(self, config: EngineConfig):
         from rosforge.engine.openai.cli_backend import OpenAICLIEngine
+
         return OpenAICLIEngine(config)
 
     def test_health_check_success(self, cli_config):
@@ -296,13 +330,13 @@ class TestOpenAICLIEngine:
 
     def test_analyze_parses_wrapped_response(self, sample_ir):
         import json
+
         config = EngineConfig(name="openai", mode="cli", timeout_seconds=10)
         # OpenAI CLI returns JSON with choices[0].message.content
-        cli_response = json.dumps({
-            "choices": [{"message": {"content": VALID_ANALYZE_JSON}}]
-        })
+        cli_response = json.dumps({"choices": [{"message": {"content": VALID_ANALYZE_JSON}}]})
         mock_result = SubprocessResult(
-            status="success", exit_code=0,
+            status="success",
+            exit_code=0,
             raw_stdout=cli_response,
             parsed_json={},
         )
@@ -313,12 +347,12 @@ class TestOpenAICLIEngine:
 
     def test_transform_parses_wrapped_response(self, sample_ir, sample_plan):
         import json
+
         config = EngineConfig(name="openai", mode="cli", timeout_seconds=10)
-        cli_response = json.dumps({
-            "choices": [{"message": {"content": VALID_TRANSFORM_JSON}}]
-        })
+        cli_response = json.dumps({"choices": [{"message": {"content": VALID_TRANSFORM_JSON}}]})
         mock_result = SubprocessResult(
-            status="success", exit_code=0,
+            status="success",
+            exit_code=0,
             raw_stdout=cli_response,
             parsed_json={},
         )
@@ -332,7 +366,8 @@ class TestOpenAICLIEngine:
     def test_timeout_raises(self, sample_ir):
         config = EngineConfig(name="openai", mode="cli", timeout_seconds=10)
         mock_result = SubprocessResult(
-            status="timeout", exit_code=-1,
+            status="timeout",
+            exit_code=-1,
             error_message="Command timed out after 10s",
         )
         with patch("rosforge.engine.openai.cli_backend.run_command", return_value=mock_result):
@@ -343,7 +378,8 @@ class TestOpenAICLIEngine:
     def test_error_raises(self, sample_ir):
         config = EngineConfig(name="openai", mode="cli", timeout_seconds=10)
         mock_result = SubprocessResult(
-            status="error", exit_code=1,
+            status="error",
+            exit_code=1,
             error_message="openai not found",
         )
         with patch("rosforge.engine.openai.cli_backend.run_command", return_value=mock_result):
@@ -368,26 +404,35 @@ class TestOpenAICLIEngine:
 
 # ── OpenAIAPIEngine tests ──────────────────────────────────────────────────────
 
+
 class TestOpenAIAPIEngine:
     def test_import_error_without_sdk(self):
         import rosforge.engine.openai.api_backend as mod
+
         with patch.object(mod, "_OPENAI_AVAILABLE", False):
             from rosforge.engine.openai.api_backend import OpenAIAPIEngine
+
             config = EngineConfig(name="openai", mode="api", timeout_seconds=10, api_key="key")
             with pytest.raises(ImportError, match="openai"):
                 OpenAIAPIEngine(config)
 
     def _make_engine_with_mock(self, config: EngineConfig):
         import rosforge.engine.openai.api_backend as mod
+
         mock_openai = MagicMock()
         mock_client = MagicMock()
         mock_openai.OpenAI.return_value = mock_client
-        with patch.object(mod, "_OPENAI_AVAILABLE", True), \
-             patch.object(mod, "_openai_sdk", mock_openai):
+        with (
+            patch.object(mod, "_OPENAI_AVAILABLE", True),
+            patch.object(mod, "_openai_sdk", mock_openai),
+        ):
             from rosforge.engine.openai.api_backend import OpenAIAPIEngine
+
             engine = OpenAIAPIEngine.__new__(OpenAIAPIEngine)
             engine._config = config
-            engine._builder = __import__("rosforge.engine.prompt_builder", fromlist=["PromptBuilder"]).PromptBuilder()
+            engine._builder = __import__(
+                "rosforge.engine.prompt_builder", fromlist=["PromptBuilder"]
+            ).PromptBuilder()
             engine._model_name = config.model or "gpt-4o"
             engine._client = mock_client
             return engine, mock_client
@@ -450,26 +495,35 @@ class TestOpenAIAPIEngine:
 
 # ── ClaudeAPIEngine tests ──────────────────────────────────────────────────────
 
+
 class TestClaudeAPIEngine:
     def test_import_error_without_sdk(self):
         import rosforge.engine.claude.api_backend as mod
+
         with patch.object(mod, "_ANTHROPIC_AVAILABLE", False):
             from rosforge.engine.claude.api_backend import ClaudeAPIEngine
+
             config = EngineConfig(name="claude", mode="api", timeout_seconds=10, api_key="key")
             with pytest.raises(ImportError, match="anthropic"):
                 ClaudeAPIEngine(config)
 
     def _make_engine_with_mock(self, config: EngineConfig):
         import rosforge.engine.claude.api_backend as mod
+
         mock_anthropic = MagicMock()
         mock_client = MagicMock()
         mock_anthropic.Anthropic.return_value = mock_client
-        with patch.object(mod, "_ANTHROPIC_AVAILABLE", True), \
-             patch.object(mod, "_anthropic_sdk", mock_anthropic):
+        with (
+            patch.object(mod, "_ANTHROPIC_AVAILABLE", True),
+            patch.object(mod, "_anthropic_sdk", mock_anthropic),
+        ):
             from rosforge.engine.claude.api_backend import ClaudeAPIEngine
+
             engine = ClaudeAPIEngine.__new__(ClaudeAPIEngine)
             engine._config = config
-            engine._builder = __import__("rosforge.engine.prompt_builder", fromlist=["PromptBuilder"]).PromptBuilder()
+            engine._builder = __import__(
+                "rosforge.engine.prompt_builder", fromlist=["PromptBuilder"]
+            ).PromptBuilder()
             engine._model_name = config.model or "claude-3-5-sonnet-20241022"
             engine._client = mock_client
             return engine, mock_client

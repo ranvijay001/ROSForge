@@ -13,7 +13,6 @@ from rosforge.models.result import TransformedFile
 from rosforge.pipeline.interactive import InteractiveReviewStage
 from rosforge.pipeline.runner import PipelineContext
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -77,8 +76,7 @@ def test_accept_all(tmp_path: Path) -> None:
     ]
     ctx = _make_ctx(tmp_path, files)
 
-    with patch("sys.stdin.isatty", return_value=True), \
-         patch("builtins.input", return_value="a"):
+    with patch("sys.stdin.isatty", return_value=True), patch("builtins.input", return_value="a"):
         ctx = InteractiveReviewStage().execute(ctx)
 
     assert len(ctx.transformed_files) == 2
@@ -96,8 +94,7 @@ def test_skip_file(tmp_path: Path) -> None:
     ]
     ctx = _make_ctx(tmp_path, files)
 
-    with patch("sys.stdin.isatty", return_value=True), \
-         patch("builtins.input", return_value="s"):
+    with patch("sys.stdin.isatty", return_value=True), patch("builtins.input", return_value="s"):
         ctx = InteractiveReviewStage().execute(ctx)
 
     assert len(ctx.transformed_files) == 1
@@ -118,8 +115,7 @@ def test_quit_early(tmp_path: Path) -> None:
     ctx = _make_ctx(tmp_path, files)
 
     # 'q' on first prompt — remaining files should be accepted automatically
-    with patch("sys.stdin.isatty", return_value=True), \
-         patch("builtins.input", return_value="q"):
+    with patch("sys.stdin.isatty", return_value=True), patch("builtins.input", return_value="q"):
         ctx = InteractiveReviewStage().execute(ctx)
 
     assert len(ctx.transformed_files) == 3
@@ -138,12 +134,11 @@ def test_no_tty_skips(tmp_path: Path) -> None:
         _make_transformed("src/node.cpp", "// original", "// transformed"),
     ]
     ctx = _make_ctx(tmp_path, files)
-    original_files = list(ctx.transformed_files)
-
-    with patch("sys.stdin.isatty", return_value=False):
-        # Should not raise, and should not prompt
-        with patch("builtins.input", side_effect=AssertionError("input() must not be called")):
-            ctx = InteractiveReviewStage().execute(ctx)
+    with (
+        patch("sys.stdin.isatty", return_value=False),
+        patch("builtins.input", side_effect=AssertionError("input() must not be called")),
+    ):
+        ctx = InteractiveReviewStage().execute(ctx)
 
     # Files are unchanged (no user_action set)
     assert len(ctx.transformed_files) == 1
@@ -161,8 +156,10 @@ def test_empty_transforms(tmp_path: Path) -> None:
     )
     ctx.transformed_files = []
 
-    with patch("sys.stdin.isatty", return_value=True), \
-         patch("builtins.input", side_effect=AssertionError("input() must not be called")):
+    with (
+        patch("sys.stdin.isatty", return_value=True),
+        patch("builtins.input", side_effect=AssertionError("input() must not be called")),
+    ):
         ctx = InteractiveReviewStage().execute(ctx)
 
     assert ctx.transformed_files == []

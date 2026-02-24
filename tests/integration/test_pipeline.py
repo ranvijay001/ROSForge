@@ -73,6 +73,7 @@ class TestAnalyzeStage:
 class TestValidateStage:
     def test_validate_skips_when_auto_build_false(self, tmp_output, default_config):
         from rosforge.models.config import ValidationConfig
+
         config = RosForgeConfig(validation=ValidationConfig(auto_build=False))
         ctx = PipelineContext(
             source_path=ROS1_MINIMAL,
@@ -85,6 +86,7 @@ class TestValidateStage:
 
     def test_validate_fails_gracefully_without_colcon(self, tmp_output, default_config):
         from unittest.mock import patch
+
         ctx = PipelineContext(
             source_path=ROS1_MINIMAL,
             output_path=tmp_output,
@@ -106,7 +108,8 @@ class TestTransformStageRuleBased:
         IngestStage().execute(ctx)
 
         # Patch EngineRegistry to avoid needing a real engine for AI files
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
+
         mock_engine = MagicMock()
         mock_engine.transform.return_value = TransformedFile(
             source_path="src/talker.cpp",
@@ -130,7 +133,8 @@ class TestTransformStageRuleBased:
         )
         IngestStage().execute(ctx)
 
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
+
         mock_engine = MagicMock()
         mock_engine.transform.return_value = TransformedFile(
             source_path="src/talker.cpp",
@@ -143,13 +147,12 @@ class TestTransformStageRuleBased:
         with patch("rosforge.pipeline.transform.EngineRegistry.get", return_value=mock_engine):
             TransformStage().execute(ctx)
 
-        pkg_xml_results = [
-            tf for tf in ctx.transformed_files
-            if "package.xml" in tf.source_path
-        ]
+        pkg_xml_results = [tf for tf in ctx.transformed_files if "package.xml" in tf.source_path]
         assert len(pkg_xml_results) == 1
-        assert "ament" in pkg_xml_results[0].transformed_content.lower() or \
-               pkg_xml_results[0].transformed_content != ""
+        assert (
+            "ament" in pkg_xml_results[0].transformed_content.lower()
+            or pkg_xml_results[0].transformed_content != ""
+        )
 
 
 class TestReportStage:
@@ -189,7 +192,8 @@ class TestFullPipeline:
             config=default_config,
         )
 
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
+
         mock_engine = MagicMock()
         mock_engine.transform.return_value = TransformedFile(
             source_path="src/talker.cpp",
@@ -201,12 +205,14 @@ class TestFullPipeline:
         )
 
         with patch("rosforge.pipeline.transform.EngineRegistry.get", return_value=mock_engine):
-            runner = PipelineRunner(stages=[
-                IngestStage(),
-                AnalyzeStage(),
-                TransformStage(),
-                ReportStage(),
-            ])
+            runner = PipelineRunner(
+                stages=[
+                    IngestStage(),
+                    AnalyzeStage(),
+                    TransformStage(),
+                    ReportStage(),
+                ]
+            )
             ctx = runner.run(ctx)
 
         assert ctx.package_ir is not None

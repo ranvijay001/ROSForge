@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from typing import ClassVar
 
 from rosforge.models.config import EngineConfig
@@ -80,7 +81,7 @@ class EngineInterface(ABC):
 class EngineRegistry:
     """Registry mapping engine names to their implementation classes."""
 
-    _registry: ClassVar[dict[str, type[EngineInterface]]] = {}
+    _registry: ClassVar[dict[str, Callable[[EngineConfig], EngineInterface]]] = {}
 
     @classmethod
     def register(cls, name: str, engine_class: type[EngineInterface]) -> None:
@@ -108,9 +109,7 @@ class EngineRegistry:
         """
         if name not in cls._registry:
             available = ", ".join(sorted(cls._registry)) or "(none)"
-            raise KeyError(
-                f"Unknown engine {name!r}. Available engines: {available}"
-            )
+            raise KeyError(f"Unknown engine {name!r}. Available engines: {available}")
         return cls._registry[name](config)
 
     @classmethod

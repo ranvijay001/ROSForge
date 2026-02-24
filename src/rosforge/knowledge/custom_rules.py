@@ -52,8 +52,7 @@ def load_custom_rules(path: Path) -> CustomRules:
         import yaml  # type: ignore[import-untyped]
     except ImportError as exc:
         raise ImportError(
-            "PyYAML is required to load custom rules. "
-            "Install it with: pip install pyyaml"
+            "PyYAML is required to load custom rules. Install it with: pip install pyyaml"
         ) from exc
 
     if not path.exists():
@@ -66,15 +65,12 @@ def load_custom_rules(path: Path) -> CustomRules:
         raise ValueError(f"Invalid YAML in custom rules file {path}: {exc}") from exc
 
     if not isinstance(data, dict):
-        raise ValueError(
-            f"Custom rules file {path} must contain a YAML mapping at the top level."
-        )
+        raise ValueError(f"Custom rules file {path} must contain a YAML mapping at the top level.")
 
     version = data.get("version")
     if version != 1:
         raise ValueError(
-            f"Unsupported custom rules version {version!r} in {path}. "
-            "Only version 1 is supported."
+            f"Unsupported custom rules version {version!r} in {path}. Only version 1 is supported."
         )
 
     def _extract_str_mapping(section: object, key: str) -> dict[str, str]:

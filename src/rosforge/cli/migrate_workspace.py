@@ -3,11 +3,17 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 import typer
 
-from rosforge.cli.ui import console, print_banner, print_error, print_info, print_workspace_progress, print_workspace_summary
+from rosforge.cli.ui import (
+    console,
+    print_banner,
+    print_error,
+    print_info,
+    print_workspace_progress,
+    print_workspace_summary,
+)
 from rosforge.config.manager import ConfigManager
 from rosforge.parsers.workspace_scanner import discover_packages, is_catkin_workspace
 
@@ -17,16 +23,14 @@ app = typer.Typer(help="Migrate all ROS1 packages in a catkin workspace to ROS2.
 @app.callback(invoke_without_command=True)
 def migrate_workspace(
     workspace: Path = typer.Argument(..., help="Path to the catkin workspace root."),
-    output: Optional[Path] = typer.Option(
+    output: Path | None = typer.Option(
         None, "--output", "-o", help="Output directory for migrated packages."
     ),
     engine: str = typer.Option(
         "claude", "--engine", "-e", help="AI engine to use (claude / gemini / openai)."
     ),
-    mode: str = typer.Option(
-        "cli", "--mode", "-m", help="Engine mode: cli or api."
-    ),
-    rules: Optional[Path] = typer.Option(
+    mode: str = typer.Option("cli", "--mode", "-m", help="Engine mode: cli or api."),
+    rules: Path | None = typer.Option(
         None, "--rules", help="Path to a YAML file with custom transformation rules."
     ),
     max_fix_attempts: int = typer.Option(
@@ -35,9 +39,7 @@ def migrate_workspace(
     yes: bool = typer.Option(
         False, "--yes", "-y", help="Auto-proceed without confirmation prompts."
     ),
-    verbose: bool = typer.Option(
-        False, "--verbose", "-v", help="Enable verbose output."
-    ),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose output."),
 ) -> None:
     """Migrate all ROS1 packages in a catkin workspace to ROS2."""
     print_banner()
@@ -74,11 +76,10 @@ def migrate_workspace(
 
     # ── Confirmation prompt ───────────────────────────────────────────────
     if not yes:
-        import sys  # noqa: PLC0415
+        import sys
+
         if sys.stdin.isatty():
-            answer = typer.prompt(
-                f"Migrate {len(package_paths)} package(s)? [Y/n]", default="Y"
-            )
+            answer = typer.prompt(f"Migrate {len(package_paths)} package(s)? [Y/n]", default="Y")
             if answer.strip().lower() not in ("", "y", "yes"):
                 print_info("Migration cancelled by user.")
                 raise typer.Exit(code=0)
@@ -87,7 +88,8 @@ def migrate_workspace(
     custom_rules = None
     if rules is not None:
         try:
-            from rosforge.knowledge.custom_rules import load_custom_rules  # noqa: PLC0415
+            from rosforge.knowledge.custom_rules import load_custom_rules
+
             custom_rules = load_custom_rules(rules)
             rule_count = (
                 len(custom_rules.cpp_mappings)
@@ -98,13 +100,13 @@ def migrate_workspace(
             print_info(f"Custom rules loaded: [bold]{rule_count}[/bold] overrides")
         except FileNotFoundError as exc:
             print_error(str(exc))
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from exc
         except ValueError as exc:
             print_error(f"Invalid custom rules file: {exc}")
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from exc
         except ImportError as exc:
             print_error(str(exc))
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from exc
 
     # ── Load config ───────────────────────────────────────────────────────
     cfg_manager = ConfigManager()
@@ -116,10 +118,10 @@ def migrate_workspace(
 
     # ── Run workspace migration ───────────────────────────────────────────
     try:
-        from rosforge.pipeline.workspace_runner import WorkspaceRunner  # noqa: PLC0415
+        from rosforge.pipeline.workspace_runner import WorkspaceRunner
     except ImportError as exc:
         print_error(f"WorkspaceRunner not available: {exc}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from exc
 
     runner = WorkspaceRunner(config=config, custom_rules=custom_rules)
 
@@ -137,7 +139,7 @@ def migrate_workspace(
         print_workspace_progress(idx, total, pkg_name)
         pkg_output = output_resolved / pkg_name
         # Delegate to runner's internal method for one package at a time
-        result = runner._migrate_package(pkg_name, pkg_path, pkg_output)  # noqa: SLF001
+        result = runner._migrate_package(pkg_name, pkg_path, pkg_output)
         results.append(result)
         if result.success:
             console.print(
@@ -154,7 +156,8 @@ def migrate_workspace(
 
     # ── Write consolidated workspace report ───────────────────────────────
     try:
-        from rosforge.pipeline.report import render_workspace_report  # noqa: PLC0415
+        from rosforge.pipeline.report import render_workspace_report
+
         target_distro = config.migration.target_ros2_distro
         render_workspace_report(
             results=results,
@@ -164,10 +167,8 @@ def migrate_workspace(
         )
         ws_report_path = output_resolved / "workspace_report.md"
         console.print()
-        console.print(
-            f"[bold green]Workspace report:[/bold green] [cyan]{ws_report_path}[/cyan]"
-        )
-    except Exception as exc:  # noqa: BLE001
+        console.print(f"[bold green]Workspace report:[/bold green] [cyan]{ws_report_path}[/cyan]")
+    except Exception as exc:
         if verbose:
             console.print_exception()
         console.print(f"[yellow]Warning: could not write workspace report: {exc}[/yellow]")
@@ -176,7 +177,5 @@ def migrate_workspace(
     failed = [r for r in results if not r.success]
     if failed:
         console.print()
-        console.print(
-            f"[bold red]{len(failed)} package(s) failed migration.[/bold red]"
-        )
+        console.print(f"[bold red]{len(failed)} package(s) failed migration.[/bold red]")
         raise typer.Exit(code=1)

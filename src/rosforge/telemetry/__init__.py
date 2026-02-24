@@ -26,7 +26,5 @@ def prompt_opt_in() -> bool:
             default=False,
         )
     except ImportError:
-        answer = input(
-            "Help improve ROSForge? Send anonymous usage data? [y/N] "
-        ).strip().lower()
+        answer = input("Help improve ROSForge? Send anonymous usage data? [y/N] ").strip().lower()
         return answer in ("y", "yes")

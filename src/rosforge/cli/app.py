@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 import typer
 
 from rosforge import __version__
@@ -28,7 +26,9 @@ app.add_typer(_config_app, name="config")
 # ── Sub-command: migrate-workspace ────────────────────────────────────────────
 from rosforge.cli.migrate_workspace import migrate_workspace as _migrate_workspace_fn  # noqa: E402
 
-app.command("migrate-workspace", help="Migrate all ROS1 packages in a catkin workspace to ROS2.")(_migrate_workspace_fn)
+app.command("migrate-workspace", help="Migrate all ROS1 packages in a catkin workspace to ROS2.")(
+    _migrate_workspace_fn
+)
 
 # ── Sub-commands: analyze / status ────────────────────────────────────────────
 from rosforge.cli.analyze import analyze as _analyze_fn  # noqa: E402
@@ -40,6 +40,7 @@ app.command("status", help="Show the status of an in-progress or completed migra
 
 # ── Version callback ──────────────────────────────────────────────────────────
 
+
 def _version_callback(value: bool) -> None:
     if value:
         typer.echo(f"rosforge {__version__}")
@@ -48,7 +49,7 @@ def _version_callback(value: bool) -> None:
 
 @app.callback()
 def main(
-    version: Optional[bool] = typer.Option(
+    version: bool | None = typer.Option(
         None,
         "--version",
         "-V",

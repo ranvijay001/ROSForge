@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
-from typing import Optional
 
 import typer
 
@@ -18,7 +16,7 @@ from rosforge.pipeline.runner import PipelineContext, PipelineRunner
 
 def analyze(
     source: Path = typer.Argument(..., help="Path to the ROS1 package directory."),
-    output: Optional[Path] = typer.Option(
+    output: Path | None = typer.Option(
         None, "--output", "-o", help="Write JSON report to this file."
     ),
     json_output: bool = typer.Option(
@@ -28,8 +26,6 @@ def analyze(
     """Analyse a ROS1 package and report migration complexity."""
     try:
         from rich.console import Console
-        from rich.table import Table
-        from rich import box
 
         _rich_available = True
     except ImportError:
@@ -53,7 +49,6 @@ def analyze(
 
     if json_output:
         # Run stages directly to avoid Rich writing to stdout
-        from rosforge.pipeline.stage import PipelineError  # noqa: PLC0415
         for stage in [IngestStage(), AnalyzeStage()]:
             ctx = _run_stage_quiet(stage, ctx)
     else:
@@ -71,7 +66,7 @@ def analyze(
     except Exception:
         # Fallback: print raw text
         typer.echo(ctx.analysis_report)
-        raise typer.Exit(code=0)
+        raise typer.Exit(code=0) from None
 
     # --json flag: dump JSON to stdout
     if json_output:
@@ -94,16 +89,18 @@ def analyze(
         _print_plain_report(report, output)
 
 
-def _print_rich_report(console: object, report: AnalysisReport, output: Optional[Path]) -> None:
-    from rich.console import Console
-    from rich.table import Table
-    from rich.panel import Panel
+def _print_rich_report(console: object, report: AnalysisReport, output: Path | None) -> None:
     from rich import box
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.table import Table
 
-    console = Console()  # type: ignore[assignment]
+    console = Console()
 
     # Summary panel
-    risk_color = "green" if report.risk_score < 0.3 else ("yellow" if report.risk_score < 0.6 else "red")
+    risk_color = (
+        "green" if report.risk_score < 0.3 else ("yellow" if report.risk_score < 0.6 else "red")
+    )
     console.print(
         Panel(
             f"[bold]{report.package_name}[/bold]\n\n"
@@ -139,7 +136,8 @@ def _print_rich_report(console: object, report: AnalysisReport, output: Optional
         fc_table.add_column("Strategy")
         for fc in report.file_complexities:
             complexity_color = (
-                "green" if fc.estimated_complexity <= 2
+                "green"
+                if fc.estimated_complexity <= 2
                 else ("yellow" if fc.estimated_complexity == 3 else "red")
             )
             strategy_style = "yellow" if fc.transform_strategy == "ai_driven" else "green"
@@ -163,23 +161,21 @@ def _print_rich_report(console: object, report: AnalysisReport, output: Optional
         console.print(f"\n[dim]Report written to {output}[/dim]")
 
 
-def _run_stage_quiet(stage: object, ctx: object) -> object:
+def _run_stage_quiet(stage: object, ctx: PipelineContext) -> PipelineContext:
     """Run a single pipeline stage without any console output."""
-    from rosforge.pipeline.stage import PipelineError, PipelineStage  # noqa: PLC0415
-    from rosforge.pipeline.runner import PipelineContext  # noqa: PLC0415
+    from rosforge.pipeline.runner import PipelineContext
+    from rosforge.pipeline.stage import PipelineError, PipelineStage
 
     assert isinstance(stage, PipelineStage)
     assert isinstance(ctx, PipelineContext)
     try:
         return stage.execute(ctx)
-    except Exception as exc:  # noqa: BLE001
-        ctx.errors.append(
-            PipelineError(stage_name=stage.name, message=str(exc), recoverable=False)
-        )
+    except Exception as exc:
+        ctx.errors.append(PipelineError(stage_name=stage.name, message=str(exc), recoverable=False))
         return ctx
 
 
-def _print_plain_report(report: AnalysisReport, output: Optional[Path]) -> None:
+def _print_plain_report(report: AnalysisReport, output: Path | None) -> None:
     print(f"=== ROSForge Analysis: {report.package_name} ===")
     print(report.summary)
     print(f"Risk score: {report.risk_score:.2f} | Confidence: {report.confidence.value}")

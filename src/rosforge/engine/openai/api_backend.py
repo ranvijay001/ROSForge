@@ -4,6 +4,7 @@ from __future__ import annotations
 
 try:
     import openai as _openai_sdk  # type: ignore[import]
+
     _OPENAI_AVAILABLE = True
 except ImportError:
     _openai_sdk = None  # type: ignore[assignment]
@@ -11,7 +12,11 @@ except ImportError:
 
 from rosforge.engine.base import EngineInterface
 from rosforge.engine.prompt_builder import PromptBuilder
-from rosforge.engine.response_parser import parse_analyze_response, parse_fix_response, parse_transform_response
+from rosforge.engine.response_parser import (
+    parse_analyze_response,
+    parse_fix_response,
+    parse_transform_response,
+)
 from rosforge.models.config import EngineConfig
 from rosforge.models.ir import PackageIR, SourceFile
 from rosforge.models.plan import CostEstimate, MigrationPlan
@@ -30,10 +35,7 @@ class OpenAIAPIEngine(EngineInterface):
         self._config = config
         self._builder = PromptBuilder()
         if not _OPENAI_AVAILABLE:
-            raise ImportError(
-                "openai is not installed. "
-                "Install it with: pip install openai"
-            )
+            raise ImportError("openai is not installed. Install it with: pip install openai")
         api_key = config.api_key or ""
         self._client = _openai_sdk.OpenAI(
             api_key=api_key or None,
@@ -70,7 +72,7 @@ class OpenAIAPIEngine(EngineInterface):
             )
             content = response.choices[0].message.content or ""
             return content
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise RuntimeError(f"OpenAI API error: {exc}") from exc
 
     # ------------------------------------------------------------------
@@ -107,7 +109,9 @@ class OpenAIAPIEngine(EngineInterface):
     def estimate_cost(self, package_ir: PackageIR) -> CostEstimate:
         system_prompt, user_prompt = self._builder.build_analyze_prompt(package_ir)
         total_chars = sum(len(f.content) for f in package_ir.source_files)
-        input_tokens = PromptBuilder.estimate_tokens(system_prompt + user_prompt + "X" * total_chars)
+        input_tokens = PromptBuilder.estimate_tokens(
+            system_prompt + user_prompt + "X" * total_chars
+        )
         output_tokens = int(input_tokens * 0.20)
         cost_usd = (
             (input_tokens / 1_000_000) * _GPT4O_INPUT_COST_PER_1M
@@ -129,5 +133,5 @@ class OpenAIAPIEngine(EngineInterface):
                 max_tokens=5,
             )
             return bool(response.choices[0].message.content)
-        except Exception:  # noqa: BLE001
+        except Exception:
             return False

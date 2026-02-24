@@ -124,9 +124,7 @@ def _include_to_python(el: ET.Element, indent: str = "        ") -> str:
         aname = _attr(arg_el, "name")
         avalue = _attr(arg_el, "value", "")
         if aname and avalue:
-            arg_lines.append(
-                f"{indent}        ({_python_value(aname)}, {_python_value(avalue)})"
-            )
+            arg_lines.append(f"{indent}        ({_python_value(aname)}, {_python_value(avalue)})")
 
     lines = [
         f"{indent}IncludeLaunchDescription(",
@@ -255,16 +253,22 @@ def transform_launch_xml(original: str) -> str:
         elif tag == "rosparam":
             lines.append("        # rosparam: convert manually to YAML parameter files")
         elif tag == "machine":
-            machine_name = _attr(elem, "name", "remote_machine")
-            machine_addr = _attr(elem, "address", "REMOTE_HOST")
-            lines.append(f"        # <machine> tag has no ROS2 equivalent — use SSH launch or a remote launch approach")
-            lines.append(f"        # Original machine: name={machine_name!r}, address={machine_addr!r}")
+            machine_name = _attr(child, "name", "remote_machine")
+            machine_addr = _attr(child, "address", "REMOTE_HOST")
+            lines.append(
+                "        # <machine> tag has no ROS2 equivalent — use SSH launch or a remote launch approach"
+            )
+            lines.append(
+                f"        # Original machine: name={machine_name!r}, address={machine_addr!r}"
+            )
         elif tag == "test":
-            test_pkg = _attr(elem, "pkg", "unknown_pkg")
-            test_type = _attr(elem, "type", "unknown_node")
-            test_name = _attr(elem, "test-name", test_type)
-            lines.append(f"        # <test> tag: migrate to launch_testing framework")
-            lines.append(f"        # Original: pkg={test_pkg!r}, type={test_type!r}, test-name={test_name!r}")
+            test_pkg = _attr(child, "pkg", "unknown_pkg")
+            test_type = _attr(child, "type", "unknown_node")
+            test_name = _attr(child, "test-name", test_type)
+            lines.append("        # <test> tag: migrate to launch_testing framework")
+            lines.append(
+                f"        # Original: pkg={test_pkg!r}, type={test_type!r}, test-name={test_name!r}"
+            )
 
     lines.append("    ])")
     lines.append("")

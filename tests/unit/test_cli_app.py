@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
+import re
+
 from typer.testing import CliRunner
 
 from rosforge.cli.app import app
+
+
+def _strip_ansi(text: str) -> str:
+    """Strip ANSI escape codes and normalize whitespace."""
+    return " ".join(re.sub(r"\x1b\[[0-9;]*m", "", text).split())
+
 
 runner = CliRunner()
 
@@ -31,9 +39,10 @@ class TestHelp:
     def test_migrate_help(self):
         result = runner.invoke(app, ["migrate", "--help"])
         assert result.exit_code == 0
-        assert "SOURCE" in result.output
-        assert "--engine" in result.output
-        assert "--distro" in result.output
+        normalized = _strip_ansi(result.output)
+        assert "SOURCE" in normalized
+        assert "--engine" in normalized
+        assert "--distro" in normalized
 
     def test_config_help(self):
         result = runner.invoke(app, ["config", "--help"])
@@ -64,14 +73,24 @@ class TestConfigCommand:
     def _write_config(self, tmp_path):
         """Write a TOML-serialisable config so ConfigManager.load() succeeds."""
         import tomli_w
+
         cfg_dir = tmp_path / ".rosforge"
         cfg_dir.mkdir(parents=True, exist_ok=True)
         cfg_path = cfg_dir / "config.toml"
         data = {
-            "engine": {"name": "claude", "mode": "cli",
-                       "timeout_seconds": 300, "api_key": "", "model": ""},
-            "migration": {"target_ros2_distro": "humble", "backup_original": True,
-                          "init_git": True, "output_dir": ""},
+            "engine": {
+                "name": "claude",
+                "mode": "cli",
+                "timeout_seconds": 300,
+                "api_key": "",
+                "model": "",
+            },
+            "migration": {
+                "target_ros2_distro": "humble",
+                "backup_original": True,
+                "init_git": True,
+                "output_dir": "",
+            },
             "validation": {"auto_build": True, "rosdep_install": True, "max_fix_attempts": 0},
             "telemetry": {"enabled": False, "local_log": True},
             "verbose": False,
@@ -127,14 +146,24 @@ class TestStubCommands:
 class TestConfigGetCommand:
     def _write_config(self, tmp_path):
         import tomli_w
+
         cfg_dir = tmp_path / ".rosforge"
         cfg_dir.mkdir(parents=True, exist_ok=True)
         cfg_path = cfg_dir / "config.toml"
         data = {
-            "engine": {"name": "claude", "mode": "cli",
-                       "timeout_seconds": 300, "api_key": "", "model": ""},
-            "migration": {"target_ros2_distro": "humble", "backup_original": True,
-                          "init_git": True, "output_dir": ""},
+            "engine": {
+                "name": "claude",
+                "mode": "cli",
+                "timeout_seconds": 300,
+                "api_key": "",
+                "model": "",
+            },
+            "migration": {
+                "target_ros2_distro": "humble",
+                "backup_original": True,
+                "init_git": True,
+                "output_dir": "",
+            },
             "validation": {"auto_build": True, "rosdep_install": True, "max_fix_attempts": 0},
             "telemetry": {"enabled": False, "local_log": True},
             "verbose": False,
@@ -166,7 +195,9 @@ class TestConfigGetCommand:
         monkeypatch.setenv("HOME", str(tmp_path))
         result = runner.invoke(app, ["config", "path"])
         assert result.exit_code == 0
-        assert "config.toml" in result.output
+        # Remove all whitespace — terminal may line-wrap inside the path
+        compressed = re.sub(r"\s+", "", _strip_ansi(result.output))
+        assert "config.toml" in compressed
 
 
 class TestUIFunctions:
@@ -174,7 +205,9 @@ class TestUIFunctions:
 
     def test_print_diff_no_changes(self) -> None:
         from io import StringIO
+
         from rich.console import Console
+
         from rosforge.cli.ui import print_diff
 
         buf = StringIO()
@@ -185,7 +218,9 @@ class TestUIFunctions:
 
     def test_print_diff_with_changes(self) -> None:
         from io import StringIO
+
         from rich.console import Console
+
         from rosforge.cli.ui import print_diff
 
         buf = StringIO()
@@ -196,6 +231,7 @@ class TestUIFunctions:
 
     def test_create_pipeline_progress_context(self) -> None:
         from rosforge.cli.ui import create_pipeline_progress
+
         with create_pipeline_progress() as prog:
             task = prog.add_task("Testing...", total=None)
             assert task is not None

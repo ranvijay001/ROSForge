@@ -57,9 +57,6 @@ class TestWorkspaceRunnerAllSucceed:
         runner = WorkspaceRunner(config=config)
 
         # Patch _migrate_package to avoid real pipeline execution
-        pkg_a = FIXTURE_WS / "src" / "pkg_a"
-        pkg_b = FIXTURE_WS / "src" / "pkg_b"
-
         def _fake_migrate(pkg_name: str, source_path: Path, output_path: Path) -> PackageResult:
             return _make_success_result(pkg_name, source_path, output_path)
 
@@ -171,11 +168,12 @@ class TestWorkspaceRunnerEmpty:
         # (that is where workspace_runner imports it from inside _migrate_package)
         with patch("rosforge.pipeline.runner.PipelineRunner", return_value=mock_runner_instance):
             # Also patch the local import inside _migrate_package
-            import rosforge.pipeline.runner as _runner_mod  # noqa: PLC0415
+            import rosforge.pipeline.runner as _runner_mod
+
             original = _runner_mod.PipelineRunner
             _runner_mod.PipelineRunner = lambda stages: mock_runner_instance  # type: ignore[assignment]
             try:
-                result = runner._migrate_package("pkg", pkg_path, out_path)  # noqa: SLF001
+                result = runner._migrate_package("pkg", pkg_path, out_path)
             finally:
                 _runner_mod.PipelineRunner = original
 

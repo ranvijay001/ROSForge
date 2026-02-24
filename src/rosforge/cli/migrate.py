@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Optional
 
 import typer
 
@@ -17,30 +16,26 @@ app = typer.Typer(help="Migrate a ROS1 package to ROS2.")
 @app.callback(invoke_without_command=True)
 def migrate(
     source: Path = typer.Argument(..., help="Path to the ROS1 package directory."),
-    output: Optional[Path] = typer.Option(
+    output: Path | None = typer.Option(
         None, "--output", "-o", help="Output directory for the migrated package."
     ),
     engine: str = typer.Option(
         "claude", "--engine", "-e", help="AI engine to use (claude / gemini / openai)."
     ),
-    mode: str = typer.Option(
-        "cli", "--mode", "-m", help="Engine mode: cli or api."
-    ),
+    mode: str = typer.Option("cli", "--mode", "-m", help="Engine mode: cli or api."),
     target_distro: str = typer.Option(
         "humble", "--distro", "-d", help="Target ROS2 distribution (humble / iron / jazzy)."
     ),
-    verbose: bool = typer.Option(
-        False, "--verbose", "-v", help="Enable verbose output."
-    ),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose output."),
     max_fix_attempts: int = typer.Option(
-        0, "--max-fix-attempts", help="Maximum number of auto-fix attempts after build failure (0 = disabled)."
+        0,
+        "--max-fix-attempts",
+        help="Maximum number of auto-fix attempts after build failure (0 = disabled).",
     ),
-    rules: Optional[Path] = typer.Option(
+    rules: Path | None = typer.Option(
         None, "--rules", help="Path to a YAML file with custom transformation rules."
     ),
-    yes: bool = typer.Option(
-        False, "--yes", "-y", help="Auto-proceed past cost estimate prompt."
-    ),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Auto-proceed past cost estimate prompt."),
     interactive: bool = typer.Option(
         False, "--interactive", "-i", help="Interactively review each transformed file."
     ),
@@ -64,7 +59,8 @@ def migrate(
     custom_rules = None
     if rules is not None:
         try:
-            from rosforge.knowledge.custom_rules import load_custom_rules  # noqa: PLC0415
+            from rosforge.knowledge.custom_rules import load_custom_rules
+
             custom_rules = load_custom_rules(rules)
             rule_count = (
                 len(custom_rules.cpp_mappings)
@@ -75,13 +71,13 @@ def migrate(
             print_info(f"Custom rules loaded: [bold]{rule_count}[/bold] overrides")
         except FileNotFoundError as exc:
             print_error(str(exc))
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from exc
         except ValueError as exc:
             print_error(f"Invalid custom rules file: {exc}")
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from exc
         except ImportError as exc:
             print_error(str(exc))
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from exc
 
     # ── Load config and apply CLI overrides ──────────────────────────────
     cfg_manager = ConfigManager()
@@ -102,14 +98,14 @@ def migrate(
 
     # ── Import pipeline components ────────────────────────────────────────
     try:
-        from rosforge.pipeline.runner import PipelineContext, PipelineRunner  # noqa: PLC0415
-        from rosforge.pipeline.ingest import IngestStage  # noqa: PLC0415
-        from rosforge.pipeline.analyze import AnalyzeStage  # noqa: PLC0415
-        from rosforge.pipeline.transform import TransformStage  # noqa: PLC0415
-        from rosforge.pipeline.report import ReportStage  # noqa: PLC0415
+        from rosforge.pipeline.analyze import AnalyzeStage
+        from rosforge.pipeline.ingest import IngestStage
+        from rosforge.pipeline.report import ReportStage
+        from rosforge.pipeline.runner import PipelineContext, PipelineRunner
+        from rosforge.pipeline.transform import TransformStage
     except ImportError as exc:
         print_error(f"Pipeline not available: {exc}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from exc
 
     # ── Instantiate engine for fix loop (if needed) ───────────────────────
     pipeline_engine = None
@@ -118,22 +114,25 @@ def migrate(
 
     if fix_loop_enabled:
         try:
-            from rosforge.engine.base import EngineRegistry  # noqa: PLC0415
+            from rosforge.engine.base import EngineRegistry
+
             pipeline_engine = EngineRegistry.get(engine_key, config.engine)
         except KeyError as exc:
             print_error(f"Engine not available for fix loop: {exc}")
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from exc
 
     # ── Build stage list ──────────────────────────────────────────────────
     stages = [IngestStage(), AnalyzeStage(), TransformStage()]
 
     if interactive:
-        from rosforge.pipeline.interactive import InteractiveReviewStage  # noqa: PLC0415
+        from rosforge.pipeline.interactive import InteractiveReviewStage
+
         config = cfg_manager.set(config, "migration.interactive", True)
         stages.append(InteractiveReviewStage())
 
     if fix_loop_enabled:
-        from rosforge.pipeline.validate_fix_loop import ValidateFixLoopStage  # noqa: PLC0415
+        from rosforge.pipeline.validate_fix_loop import ValidateFixLoopStage
+
         effective_max_attempts = max(max_fix_attempts, config.validation.max_fix_attempts)
         stages.append(ValidateFixLoopStage(max_attempts=effective_max_attempts))
 
@@ -188,11 +187,11 @@ def migrate(
 
     try:
         ctx = runner.run(ctx)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         print_error(f"Migration failed: {exc}")
         if verbose:
             console.print_exception()
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from exc
 
     # ── Check if user declined after cost estimate ────────────────────────
     if not _proceed[0]:
@@ -223,17 +222,13 @@ def migrate(
     report_path = output.resolve() / "migration_report.md"
     console.print()
     console.print(
-        f"[bold green]Migration complete.[/bold green] "
-        f"Report: [cyan]{report_path}[/cyan]"
+        f"[bold green]Migration complete.[/bold green] Report: [cyan]{report_path}[/cyan]"
     )
 
     transformed = ctx.transformed_files
     rule_count_files = sum(1 for t in transformed if t.strategy_used == "rule_based")
     ai_count = sum(1 for t in transformed if t.strategy_used == "ai_driven")
-    conf_avg = (
-        sum(t.confidence for t in transformed) / len(transformed)
-        if transformed else 0.0
-    )
+    conf_avg = sum(t.confidence for t in transformed) / len(transformed) if transformed else 0.0
 
     console.print(
         f"  Files transformed: [bold]{len(transformed)}[/bold] "
@@ -257,7 +252,9 @@ def migrate(
     if low_conf > 0:
         low_files = [t.target_path for t in transformed if t.confidence < 0.5]
         console.print()
-        console.print("[bold yellow]Low-confidence files (manual review recommended):[/bold yellow]")
+        console.print(
+            "[bold yellow]Low-confidence files (manual review recommended):[/bold yellow]"
+        )
         for lf in low_files:
             console.print(f"  [yellow]•[/yellow] {lf}")
 
@@ -267,8 +264,7 @@ def migrate(
         build_status = "[green]PASS[/green]" if build_ok else "[red]FAIL[/red]"
         console.print()
         console.print(
-            f"  Fix loop: [bold]{ctx.fix_attempts}[/bold] attempt(s), "
-            f"final build: {build_status}"
+            f"  Fix loop: [bold]{ctx.fix_attempts}[/bold] attempt(s), final build: {build_status}"
         )
 
     recoverable_warnings = [e for e in ctx.errors if e.recoverable]

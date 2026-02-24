@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import copy
 from pathlib import Path
 from typing import Any
 
 import tomli_w
 
-from rosforge.config.defaults import DEFAULT_CONFIG
 from rosforge.models.config import RosForgeConfig
 
 try:

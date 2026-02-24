@@ -6,9 +6,9 @@ import json
 
 from rosforge.knowledge import (
     CATKIN_TO_AMENT,
+    ROS1_TO_ROS2_PACKAGES,
     ROSCPP_TO_RCLCPP,
     ROSPY_TO_RCLPY,
-    ROS1_TO_ROS2_PACKAGES,
     merge_custom_rules,
 )
 from rosforge.knowledge.custom_rules import CustomRules
@@ -21,8 +21,8 @@ _MODEL_TOKEN_LIMIT = 128_000
 _TOKEN_BUDGET = int(_MODEL_TOKEN_LIMIT * 0.80)  # 80 % of limit
 
 # Per-backend output format hints
-_FORMAT_API = "json"       # structured JSON response
-_FORMAT_CLI = "markdown"   # markdown with fenced JSON block
+_FORMAT_API = "json"  # structured JSON response
+_FORMAT_CLI = "markdown"  # markdown with fenced JSON block
 
 
 def _format_mapping_table(mapping: dict[str, str], title: str) -> str:
@@ -224,9 +224,15 @@ class PromptBuilder:
     # ------------------------------------------------------------------
 
     def _knowledge_section(self) -> str:
-        cpp_table = _format_mapping_table(self._roscpp_to_rclcpp, "C++ API Mappings (roscpp → rclcpp)")
-        py_table = _format_mapping_table(self._rospy_to_rclpy, "Python API Mappings (rospy → rclpy)")
-        cmake_table = _format_mapping_table(self._catkin_to_ament, "CMake Mappings (catkin → ament)")
+        cpp_table = _format_mapping_table(
+            self._roscpp_to_rclcpp, "C++ API Mappings (roscpp → rclcpp)"
+        )
+        py_table = _format_mapping_table(
+            self._rospy_to_rclpy, "Python API Mappings (rospy → rclpy)"
+        )
+        cmake_table = _format_mapping_table(
+            self._catkin_to_ament, "CMake Mappings (catkin → ament)"
+        )
         pkg_table = _format_mapping_table(self._ros1_to_ros2_packages, "Package Name Mappings")
         parts = [s for s in [cpp_table, py_table, cmake_table, pkg_table] if s]
         return "\n\n".join(parts)
@@ -282,9 +288,7 @@ class PromptBuilder:
             "You are an expert ROS1-to-ROS2 migration engineer.\n"
             "Analyse the provided ROS1 package intermediate representation and "
             "return a JSON migration plan.\n\n"
-            "## Knowledge Base\n\n"
-            + self._knowledge_section()
-            + "\n\n"
+            "## Knowledge Base\n\n" + self._knowledge_section() + "\n\n"
             "## Output Format\n\n"
             "Return a single JSON object matching this schema:\n"
             "```json\n"
@@ -319,12 +323,10 @@ class PromptBuilder:
                 "launch_files": package_ir.launch_files,
                 "msg_srv_files": package_ir.msg_srv_files,
                 "dependencies": [
-                    {"name": d.name, "type": d.dep_type}
-                    for d in package_ir.dependencies
+                    {"name": d.name, "type": d.dep_type} for d in package_ir.dependencies
                 ],
                 "api_usages": [
-                    {"api": u.api_name, "file": u.file_path}
-                    for u in package_ir.api_usages[:50]
+                    {"api": u.api_name, "file": u.file_path} for u in package_ir.api_usages[:50]
                 ],
             },
             indent=2,
@@ -425,15 +427,15 @@ class PromptBuilder:
         output_format = self._output_format_instructions()
 
         system_prompt = (
-            base_system
-            + "\n\nYou previously transformed a ROS1 file but the result had issues. "
+            base_system + "\n\nYou previously transformed a ROS1 file but the result had issues. "
             "Fix the problems described below and return the corrected transformation.\n\n"
-            "## Output Format\n\n"
-            + output_format
+            "## Output Format\n\n" + output_format
         )
 
         system_tokens = self.estimate_tokens(system_prompt)
-        budget = (_TOKEN_BUDGET - system_tokens - 500) // 2  # split budget between original and transformed
+        budget = (
+            _TOKEN_BUDGET - system_tokens - 500
+        ) // 2  # split budget between original and transformed
         original = self._truncate_if_needed(source_file.content, budget)
         transformed = self._truncate_if_needed(transformed_content, budget)
 

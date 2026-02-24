@@ -28,17 +28,17 @@ from rosforge.models.plan import (
     TransformAction,
     TransformStrategy,
 )
+from rosforge.models.report import (
+    AnalysisReport,
+    FileChangeRecord,
+    MigrationReport,
+)
 from rosforge.models.result import (
     BuildError,
     ChangeEntry,
     SubprocessResult,
     TransformedFile,
     ValidationResult,
-)
-from rosforge.models.report import (
-    AnalysisReport,
-    FileChangeRecord,
-    MigrationReport,
 )
 from rosforge.telemetry.events import (
     AnalyzeRunEvent,
@@ -84,6 +84,7 @@ class TestIRModels:
 
     def test_package_ir_get_files_by_type(self):
         from pathlib import Path
+
         sf_cpp = SourceFile(relative_path="src/a.cpp", file_type=FileType.CPP)
         sf_py = SourceFile(relative_path="scripts/b.py", file_type=FileType.PYTHON)
         ir = PackageIR(source_path=Path("/tmp/pkg"), source_files=[sf_cpp, sf_py])
@@ -105,12 +106,16 @@ class TestPlanModels:
     def test_migration_plan_counts(self):
         actions = [
             TransformAction(
-                source_path="a.cpp", target_path="a.cpp",
-                strategy=TransformStrategy.AI_DRIVEN, confidence=0.8
+                source_path="a.cpp",
+                target_path="a.cpp",
+                strategy=TransformStrategy.AI_DRIVEN,
+                confidence=0.8,
             ),
             TransformAction(
-                source_path="package.xml", target_path="package.xml",
-                strategy=TransformStrategy.RULE_BASED, confidence=0.95
+                source_path="package.xml",
+                target_path="package.xml",
+                strategy=TransformStrategy.RULE_BASED,
+                confidence=0.95,
             ),
         ]
         plan = MigrationPlan(actions=actions)
@@ -126,15 +131,19 @@ class TestPlanModels:
 class TestResultModels:
     def test_transformed_file_has_changes(self):
         tf = TransformedFile(
-            source_path="a.cpp", target_path="a.cpp",
-            original_content="old", transformed_content="new"
+            source_path="a.cpp",
+            target_path="a.cpp",
+            original_content="old",
+            transformed_content="new",
         )
         assert tf.has_changes is True
 
     def test_transformed_file_no_changes(self):
         tf = TransformedFile(
-            source_path="a.cpp", target_path="a.cpp",
-            original_content="same", transformed_content="same"
+            source_path="a.cpp",
+            target_path="a.cpp",
+            original_content="same",
+            transformed_content="same",
         )
         assert tf.has_changes is False
 
@@ -155,7 +164,9 @@ class TestTelemetryEvents:
         assert isinstance(ev.timestamp, datetime)
 
     def test_migration_end_event(self):
-        ev = MigrationEndEvent(duration_s=12.5, success=True, files_transformed=3, confidence_avg=0.85)
+        ev = MigrationEndEvent(
+            duration_s=12.5, success=True, files_transformed=3, confidence_avg=0.85
+        )
         assert ev.event_type == "migration_end"
         assert ev.success is True
 
@@ -170,6 +181,7 @@ class TestTelemetryEvents:
 
     def test_event_serializes_to_json(self):
         import json
+
         ev = MigrationStartEvent(engine="claude-cli", package_file_count=2, total_lines=100)
         data = json.loads(ev.model_dump_json())
         assert data["event_type"] == "migration_start"

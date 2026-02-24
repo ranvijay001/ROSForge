@@ -53,11 +53,7 @@ def parse_package_xml(path: Path) -> tuple[PackageMetadata, list[Dependency]]:
     format_version = 1
     try:
         fmt_attr = root.get("format")
-        if fmt_attr is not None:
-            format_version = int(fmt_attr)
-        else:
-            # Missing format attribute defaults to format 1 per REP-0127
-            format_version = 1
+        format_version = int(fmt_attr) if fmt_attr is not None else 1
     except (ValueError, TypeError):
         format_version = 1
 

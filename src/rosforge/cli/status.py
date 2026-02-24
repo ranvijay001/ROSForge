@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Optional
 
 import typer
 
@@ -15,7 +14,7 @@ _cfg = ConfigManager()
 
 
 def status(
-    output_dir: Optional[Path] = typer.Argument(
+    output_dir: Path | None = typer.Argument(
         None,
         help="Output directory of a previous migration (defaults to most recent log).",
         exists=False,
@@ -53,8 +52,8 @@ def status(
 
 def _show_report_status(output_dir: Path, report_path: Path) -> None:
     """Display status from migration_report.md."""
-    from rich.panel import Panel  # noqa: PLC0415
-    from rich.table import Table  # noqa: PLC0415
+    from rich.panel import Panel
+    from rich.table import Table
 
     content = report_path.read_text(encoding="utf-8")
 
@@ -80,7 +79,9 @@ def _show_report_status(output_dir: Path, report_path: Path) -> None:
     else:
         table.add_row("Build validation:", "[dim]not run[/dim]")
 
-    console.print(Panel(table, title="[bold cyan]Migration Status[/bold cyan]", border_style="cyan"))
+    console.print(
+        Panel(table, title="[bold cyan]Migration Status[/bold cyan]", border_style="cyan")
+    )
     console.print()
     print_info(f"Full report: {report_path}")
 
@@ -89,12 +90,12 @@ def _show_log_status(log_path: Path) -> None:
     """Display status from a JSON log file."""
     try:
         data = json.loads(log_path.read_text(encoding="utf-8"))
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         print_error(f"Failed to read log file: {exc}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from exc
 
-    from rich.panel import Panel  # noqa: PLC0415
-    from rich.table import Table  # noqa: PLC0415
+    from rich.panel import Panel
+    from rich.table import Table
 
     table = Table.grid(padding=(0, 2))
     table.add_column(style="bold")

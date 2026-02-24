@@ -32,7 +32,7 @@ def config_set(
         config = _cfg.set(config, key, value)
     except KeyError as exc:
         print_error(str(exc))
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from exc
     _cfg.save(config)
     console.print(f"[green]Set[/green] {key} = {value!r}")
 
@@ -47,15 +47,13 @@ def config_get(
         value = _cfg.get(config, key)
     except KeyError as exc:
         print_error(str(exc))
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from exc
     console.print(f"{key} = {value!r}")
 
 
 @app.command("reset")
 def config_reset(
-    confirm: bool = typer.Option(
-        False, "--yes", "-y", help="Skip confirmation prompt."
-    ),
+    confirm: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."),
 ) -> None:
     """Reset configuration to defaults."""
     if not confirm:
@@ -64,7 +62,7 @@ def config_reset(
             print_info("Reset cancelled.")
             raise typer.Exit()
 
-    from rosforge.models.config import RosForgeConfig  # noqa: PLC0415
+    from rosforge.models.config import RosForgeConfig
 
     default_config = RosForgeConfig()
     _cfg.save(default_config)
@@ -74,7 +72,7 @@ def config_reset(
 @app.command("path")
 def config_path() -> None:
     """Show the path to the configuration file."""
-    from rosforge.models.config import RosForgeConfig  # noqa: PLC0415
+    from rosforge.models.config import RosForgeConfig
 
     config_file = RosForgeConfig().config_path
     console.print(str(config_file))

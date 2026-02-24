@@ -27,7 +27,7 @@ class InteractiveReviewStage(PipelineStage):
             return ctx
 
         if not sys.stdin.isatty():
-            import warnings  # noqa: PLC0415
+            import warnings
 
             warnings.warn(
                 "Interactive review skipped: stdin is not a TTY. "
@@ -63,7 +63,9 @@ class InteractiveReviewStage(PipelineStage):
             # Prompt
             while True:
                 try:
-                    answer = input("[A]ccept / [S]kip / [Q]uit (accept remaining)? ").strip().lower()
+                    answer = (
+                        input("[A]ccept / [S]kip / [Q]uit (accept remaining)? ").strip().lower()
+                    )
                 except EOFError:
                     answer = "a"
 

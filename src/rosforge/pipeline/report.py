@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from importlib.resources import files as _pkg_files
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 from rosforge.models.plan import TransformStrategy
-from rosforge.models.result import TransformedFile
 from rosforge.pipeline.runner import PipelineContext
 from rosforge.pipeline.stage import PipelineError, PipelineStage
 
@@ -30,7 +28,7 @@ def _render_jinja2(ctx: PipelineContext) -> str | None:
     Returns the rendered string, or None if jinja2 is unavailable.
     """
     try:
-        from jinja2 import Environment, FileSystemLoader  # noqa: PLC0415
+        from jinja2 import Environment, FileSystemLoader
     except ImportError:
         return None
 
@@ -49,35 +47,25 @@ def _render_jinja2(ctx: PipelineContext) -> str | None:
     pkg_name = ctx.package_ir.metadata.name if ctx.package_ir else "unknown"
     generated_at = ""
     if ctx.started_at:
-        generated_at = (
-            ctx.started_at.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-        )
+        generated_at = ctx.started_at.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     duration_seconds: float | None = None
     if ctx.started_at and ctx.completed_at:
         duration_seconds = (ctx.completed_at - ctx.started_at).total_seconds()
 
-    target_distro = (
-        ctx.migration_plan.target_ros2_distro if ctx.migration_plan else "humble"
-    )
+    target_distro = ctx.migration_plan.target_ros2_distro if ctx.migration_plan else "humble"
 
     manual_actions = []
     if ctx.migration_plan:
         manual_actions = [
-            a
-            for a in ctx.migration_plan.actions
-            if a.strategy == TransformStrategy.MANUAL
+            a for a in ctx.migration_plan.actions if a.strategy == TransformStrategy.MANUAL
         ]
 
     low_conf_files = [tf for tf in ctx.transformed_files if tf.confidence < 0.5]
     warn_files = [tf for tf in ctx.transformed_files if tf.warnings]
 
-    high_conf_count = sum(
-        1 for tf in ctx.transformed_files if tf.confidence >= 0.8
-    )
-    medium_conf_count = sum(
-        1 for tf in ctx.transformed_files if 0.5 <= tf.confidence < 0.8
-    )
+    high_conf_count = sum(1 for tf in ctx.transformed_files if tf.confidence >= 0.8)
+    medium_conf_count = sum(1 for tf in ctx.transformed_files if 0.5 <= tf.confidence < 0.8)
     low_conf_count = len(low_conf_files)
 
     confidence_label = (
@@ -116,11 +104,11 @@ def _render_jinja2(ctx: PipelineContext) -> str | None:
 def _get_git_diff_stat(output_path: Path) -> str:
     """Return git diff --stat output for the output directory, or empty string."""
     try:
-        from rosforge.utils.git import get_diff_stat, is_git_repo  # noqa: PLC0415
+        from rosforge.utils.git import get_diff_stat, is_git_repo
 
         if is_git_repo(output_path):
             return get_diff_stat(output_path)
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
     return ""
 
@@ -136,9 +124,7 @@ def _render_fallback(ctx: PipelineContext) -> str:
         ts = ctx.started_at.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
         lines.append(f"**Generated:** {ts}\n")
 
-    target_distro = (
-        ctx.migration_plan.target_ros2_distro if ctx.migration_plan else "humble"
-    )
+    target_distro = ctx.migration_plan.target_ros2_distro if ctx.migration_plan else "humble"
     lines.append(f"**Target:** ROS 2 {target_distro}\n")
     lines.append(f"**Source:** `{ctx.source_path}`\n")
     lines.append(f"**Output:** `{ctx.output_path}`\n")
@@ -152,8 +138,7 @@ def _render_fallback(ctx: PipelineContext) -> str:
         lines.append(f"{ctx.migration_plan.summary}\n")
         conf_label = _confidence_label(ctx.migration_plan.overall_confidence)
         lines.append(
-            f"Overall confidence: **{conf_label}** "
-            f"({ctx.migration_plan.overall_confidence:.2f})\n"
+            f"Overall confidence: **{conf_label}** ({ctx.migration_plan.overall_confidence:.2f})\n"
         )
         if ctx.migration_plan.warnings:
             lines.append("\n### Warnings\n")
@@ -175,9 +160,10 @@ def _render_fallback(ctx: PipelineContext) -> str:
     if ctx.cost_estimate:
         ce = ctx.cost_estimate
         lines.append("\n## Cost Estimate\n")
-        lines.append(f"- Estimated tokens: {ce.estimated_tokens}\n")
+        lines.append(f"- Input tokens: {ce.total_input_tokens}\n")
+        lines.append(f"- Output tokens: {ce.total_output_tokens}\n")
         lines.append(f"- Estimated cost: ${ce.estimated_cost_usd:.4f}\n")
-        lines.append(f"- Engine: {ce.engine}\n")
+        lines.append(f"- Engine: {ce.engine_name}\n")
 
     # Analysis
     if ctx.analysis_report:
@@ -239,9 +225,7 @@ def _render_fallback(ctx: PipelineContext) -> str:
     manual_actions = []
     if ctx.migration_plan:
         manual_actions = [
-            a
-            for a in ctx.migration_plan.actions
-            if a.strategy == TransformStrategy.MANUAL
+            a for a in ctx.migration_plan.actions if a.strategy == TransformStrategy.MANUAL
         ]
     low_conf_files = [tf for tf in ctx.transformed_files if tf.confidence < 0.5]
     if manual_actions or low_conf_files:
@@ -293,7 +277,7 @@ class ReportStage(PipelineStage):
 
 
 def render_workspace_report(
-    results: "list[PackageResult]",
+    results: list[PackageResult],
     output_path: Path,
     workspace_path: Path,
     target_distro: str = "humble",
@@ -344,18 +328,18 @@ def render_workspace_report(
 
 
 def _render_workspace_jinja2(
-    results: "list[PackageResult]",
+    results: list[PackageResult],
     workspace_path: Path,
     output_path: Path,
     generated_at: str,
     target_distro: str,
     total_duration: float,
     total_files: int,
-    failed_packages: "list[PackageResult]",
+    failed_packages: list[PackageResult],
 ) -> str | None:
     """Render workspace report via Jinja2 template. Returns None if unavailable."""
     try:
-        from jinja2 import Environment, FileSystemLoader  # noqa: PLC0415
+        from jinja2 import Environment, FileSystemLoader
     except ImportError:
         return None
 
@@ -379,14 +363,14 @@ def _render_workspace_jinja2(
 
 
 def _render_workspace_fallback(
-    results: "list[PackageResult]",
+    results: list[PackageResult],
     workspace_path: Path,
     output_path: Path,
     generated_at: str,
     target_distro: str,
     total_duration: float,
     total_files: int,
-    failed_packages: "list[PackageResult]",
+    failed_packages: list[PackageResult],
 ) -> str:
     """Plain Markdown workspace report (no Jinja2 dependency)."""
     succeeded = [r for r in results if r.success]

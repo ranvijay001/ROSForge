@@ -13,7 +13,6 @@ from rosforge.models.result import BuildError, TransformedFile, ValidationResult
 from rosforge.pipeline.fix import FixStage
 from rosforge.pipeline.runner import PipelineContext
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -28,7 +27,9 @@ def _make_ctx(tmp_path: Path) -> PipelineContext:
     )
 
 
-def _make_source_file(relative_path: str = "src/node.cpp", content: str = "// original") -> SourceFile:
+def _make_source_file(
+    relative_path: str = "src/node.cpp", content: str = "// original"
+) -> SourceFile:
     return SourceFile(
         relative_path=relative_path,
         file_type=FileType.CPP,
@@ -109,12 +110,17 @@ class TestFixStageFileMatching:
         ctx = _make_ctx(tmp_path)
         ctx.engine = _make_engine("// fixed content")
         ctx.package_ir = _make_ir()
-        ctx.transformed_files = [
-            _make_transformed_file(target_path="src/node.cpp")
-        ]
-        ctx.validation_result = _make_validation_result([
-            BuildError(file_path="src/node.cpp", line_number=5, message="undefined symbol", severity="error"),
-        ])
+        ctx.transformed_files = [_make_transformed_file(target_path="src/node.cpp")]
+        ctx.validation_result = _make_validation_result(
+            [
+                BuildError(
+                    file_path="src/node.cpp",
+                    line_number=5,
+                    message="undefined symbol",
+                    severity="error",
+                ),
+            ]
+        )
 
         result = FixStage().execute(ctx)
 
@@ -124,18 +130,18 @@ class TestFixStageFileMatching:
         ctx = _make_ctx(tmp_path)
         ctx.engine = _make_engine("// fixed")
         ctx.package_ir = _make_ir()
-        ctx.transformed_files = [
-            _make_transformed_file(target_path="src/node.cpp")
-        ]
+        ctx.transformed_files = [_make_transformed_file(target_path="src/node.cpp")]
         # Compiler error contains full build-tree path
-        ctx.validation_result = _make_validation_result([
-            BuildError(
-                file_path="/workspace/build/my_pkg/CMakeFiles/node.cpp",
-                line_number=10,
-                message="unknown type",
-                severity="error",
-            ),
-        ])
+        ctx.validation_result = _make_validation_result(
+            [
+                BuildError(
+                    file_path="/workspace/build/my_pkg/CMakeFiles/node.cpp",
+                    line_number=10,
+                    message="unknown type",
+                    severity="error",
+                ),
+            ]
+        )
 
         result = FixStage().execute(ctx)
 
@@ -145,12 +151,17 @@ class TestFixStageFileMatching:
         ctx = _make_ctx(tmp_path)
         ctx.engine = _make_engine("// fixed fallback")
         ctx.package_ir = _make_ir()
-        ctx.transformed_files = [
-            _make_transformed_file(target_path="src/node.cpp")
-        ]
-        ctx.validation_result = _make_validation_result([
-            BuildError(file_path="", line_number=0, message="CMake error: missing package", severity="error"),
-        ])
+        ctx.transformed_files = [_make_transformed_file(target_path="src/node.cpp")]
+        ctx.validation_result = _make_validation_result(
+            [
+                BuildError(
+                    file_path="",
+                    line_number=0,
+                    message="CMake error: missing package",
+                    severity="error",
+                ),
+            ]
+        )
 
         result = FixStage().execute(ctx)
 
@@ -160,12 +171,17 @@ class TestFixStageFileMatching:
         ctx = _make_ctx(tmp_path)
         ctx.engine = _make_engine()
         ctx.package_ir = _make_ir()
-        ctx.transformed_files = [
-            _make_transformed_file(target_path="src/node.cpp")
-        ]
-        ctx.validation_result = _make_validation_result([
-            BuildError(file_path="src/node.cpp", line_number=3, message="unused var", severity="warning"),
-        ])
+        ctx.transformed_files = [_make_transformed_file(target_path="src/node.cpp")]
+        ctx.validation_result = _make_validation_result(
+            [
+                BuildError(
+                    file_path="src/node.cpp",
+                    line_number=3,
+                    message="unused var",
+                    severity="warning",
+                ),
+            ]
+        )
         original_content = ctx.transformed_files[0].transformed_content
 
         result = FixStage().execute(ctx)
@@ -180,12 +196,14 @@ class TestFixStageFileWriting:
         ctx = _make_ctx(tmp_path)
         ctx.engine = _make_engine("// fixed written")
         ctx.package_ir = _make_ir()
-        ctx.transformed_files = [
-            _make_transformed_file(target_path="src/node.cpp")
-        ]
-        ctx.validation_result = _make_validation_result([
-            BuildError(file_path="src/node.cpp", line_number=1, message="error here", severity="error"),
-        ])
+        ctx.transformed_files = [_make_transformed_file(target_path="src/node.cpp")]
+        ctx.validation_result = _make_validation_result(
+            [
+                BuildError(
+                    file_path="src/node.cpp", line_number=1, message="error here", severity="error"
+                ),
+            ]
+        )
 
         FixStage().execute(ctx)
 
@@ -200,9 +218,11 @@ class TestFixStageAttemptTracking:
         ctx.engine = _make_engine()
         ctx.package_ir = _make_ir()
         ctx.transformed_files = [_make_transformed_file()]
-        ctx.validation_result = _make_validation_result([
-            BuildError(file_path="src/node.cpp", message="err", severity="error"),
-        ])
+        ctx.validation_result = _make_validation_result(
+            [
+                BuildError(file_path="src/node.cpp", message="err", severity="error"),
+            ]
+        )
 
         assert ctx.fix_attempts == 0
         FixStage().execute(ctx)
@@ -229,9 +249,11 @@ class TestFixStageEngineError:
         ctx.engine = engine
         ctx.package_ir = _make_ir()
         ctx.transformed_files = [_make_transformed_file()]
-        ctx.validation_result = _make_validation_result([
-            BuildError(file_path="src/node.cpp", message="err", severity="error"),
-        ])
+        ctx.validation_result = _make_validation_result(
+            [
+                BuildError(file_path="src/node.cpp", message="err", severity="error"),
+            ]
+        )
         original_content = ctx.transformed_files[0].transformed_content
 
         result = FixStage().execute(ctx)

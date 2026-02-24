@@ -4,6 +4,7 @@ from __future__ import annotations
 
 try:
     import anthropic as _anthropic_sdk  # type: ignore[import]
+
     _ANTHROPIC_AVAILABLE = True
 except ImportError:
     _anthropic_sdk = None  # type: ignore[assignment]
@@ -11,7 +12,11 @@ except ImportError:
 
 from rosforge.engine.base import EngineInterface
 from rosforge.engine.prompt_builder import PromptBuilder
-from rosforge.engine.response_parser import parse_analyze_response, parse_fix_response, parse_transform_response
+from rosforge.engine.response_parser import (
+    parse_analyze_response,
+    parse_fix_response,
+    parse_transform_response,
+)
 from rosforge.models.config import EngineConfig
 from rosforge.models.ir import PackageIR, SourceFile
 from rosforge.models.plan import CostEstimate, MigrationPlan
@@ -30,10 +35,7 @@ class ClaudeAPIEngine(EngineInterface):
         self._config = config
         self._builder = PromptBuilder()
         if not _ANTHROPIC_AVAILABLE:
-            raise ImportError(
-                "anthropic is not installed. "
-                "Install it with: pip install anthropic"
-            )
+            raise ImportError("anthropic is not installed. Install it with: pip install anthropic")
         api_key = config.api_key or ""
         self._client = _anthropic_sdk.Anthropic(
             api_key=api_key or None,
@@ -70,7 +72,7 @@ class ClaudeAPIEngine(EngineInterface):
             # Extract text from first content block
             content = message.content[0].text if message.content else ""
             return content
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise RuntimeError(f"Claude API error: {exc}") from exc
 
     # ------------------------------------------------------------------
@@ -107,7 +109,9 @@ class ClaudeAPIEngine(EngineInterface):
     def estimate_cost(self, package_ir: PackageIR) -> CostEstimate:
         system_prompt, user_prompt = self._builder.build_analyze_prompt(package_ir)
         total_chars = sum(len(f.content) for f in package_ir.source_files)
-        input_tokens = PromptBuilder.estimate_tokens(system_prompt + user_prompt + "X" * total_chars)
+        input_tokens = PromptBuilder.estimate_tokens(
+            system_prompt + user_prompt + "X" * total_chars
+        )
         output_tokens = int(input_tokens * 0.20)
         cost_usd = (
             (input_tokens / 1_000_000) * _CLAUDE_INPUT_COST_PER_1M
@@ -129,5 +133,5 @@ class ClaudeAPIEngine(EngineInterface):
                 messages=[{"role": "user", "content": "Reply with OK"}],
             )
             return bool(message.content)
-        except Exception:  # noqa: BLE001
+        except Exception:
             return False

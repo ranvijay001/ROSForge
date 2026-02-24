@@ -16,7 +16,6 @@ from rosforge.models.ir import (
 )
 from rosforge.models.plan import MigrationPlan, TransformAction, TransformStrategy
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -29,8 +28,7 @@ def _make_source_file(
     api_count: int = 0,
 ) -> SourceFile:
     usages = [
-        ROSAPIUsage(api_name="ros::init", file_path=path, line_number=i)
-        for i in range(api_count)
+        ROSAPIUsage(api_name="ros::init", file_path=path, line_number=i) for i in range(api_count)
     ]
     return SourceFile(
         relative_path=path,

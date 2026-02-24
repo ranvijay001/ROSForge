@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -10,6 +11,12 @@ from typer.testing import CliRunner
 
 from rosforge.cli.app import app
 from rosforge.models.result import TransformedFile
+
+
+def _strip_ansi(text: str) -> str:
+    """Strip ANSI escape codes and normalize whitespace."""
+    return " ".join(re.sub(r"\x1b\[[0-9;]*m", "", text).split())
+
 
 FIXTURES = Path(__file__).parent.parent / "fixtures"
 ROS1_MINIMAL = FIXTURES / "ros1_minimal"
@@ -27,6 +34,7 @@ class TestVersionCommand:
         assert "rosforge" in result.stdout
         # Should contain a version number like "0.1.0"
         import re
+
         assert re.search(r"\d+\.\d+\.\d+", result.stdout)
 
 
@@ -41,7 +49,8 @@ class TestMigrateHelp:
 
     def test_migrate_help_shows_engine_option(self):
         result = runner.invoke(app, ["migrate", "--help"])
-        assert "--engine" in result.stdout
+        normalized = _strip_ansi(result.stdout)
+        assert "--engine" in normalized
 
 
 class TestMigrateCommand:
@@ -56,7 +65,7 @@ class TestMigrateCommand:
             source_path="package.xml",
             target_path="package.xml",
             original_content="old",
-            transformed_content="<package format=\"3\"/>",
+            transformed_content='<package format="3"/>',
             confidence=0.95,
             strategy_used="rule_based",
         )
@@ -69,12 +78,14 @@ class TestMigrateCommand:
             (output / "migration_report.md").write_text("# Report\n")
             return ctx
 
-        with patch("rosforge.pipeline.runner.PipelineRunner.run", side_effect=fake_run):
-            with patch("rosforge.pipeline.transform.EngineRegistry.get"):
-                result = runner.invoke(
-                    app,
-                    ["migrate", str(ROS1_MINIMAL), "--output", str(output)],
-                )
+        with (
+            patch("rosforge.pipeline.runner.PipelineRunner.run", side_effect=fake_run),
+            patch("rosforge.pipeline.transform.EngineRegistry.get"),
+        ):
+            result = runner.invoke(
+                app,
+                ["migrate", str(ROS1_MINIMAL), "--output", str(output)],
+            )
         # Should exit 0 or 2 (warnings), not 1 (failure)
         assert result.exit_code in (0, 2)
 
@@ -83,6 +94,7 @@ class TestConfigCommand:
     def test_config_list_exits_zero(self):
         with patch("rosforge.config.manager.ConfigManager.load") as mock_load:
             from rosforge.models.config import RosForgeConfig
+
             mock_load.return_value = RosForgeConfig()
             result = runner.invoke(app, ["config", "list"])
         assert result.exit_code == 0
@@ -90,6 +102,7 @@ class TestConfigCommand:
     def test_config_list_shows_engine(self):
         with patch("rosforge.config.manager.ConfigManager.load") as mock_load:
             from rosforge.models.config import RosForgeConfig
+
             mock_load.return_value = RosForgeConfig()
             result = runner.invoke(app, ["config", "list"])
         assert "engine" in result.stdout
@@ -104,6 +117,7 @@ class TestAnalyzeCommand:
         result = runner.invoke(app, ["analyze", str(ROS1_MINIMAL), "--json"])
         assert result.exit_code == 0
         import json
+
         data = json.loads(result.stdout)
         assert "package_name" in data
 
@@ -117,6 +131,7 @@ class TestAnalyzeCommand:
         assert result.exit_code == 0
         assert report_file.exists()
         import json
+
         data = json.loads(report_file.read_text())
         assert "package_name" in data
 

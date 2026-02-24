@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from rosforge.models.result import TransformedFile
+from rosforge.models.plan import MigrationPlan
 from rosforge.pipeline.runner import PipelineContext
 from rosforge.pipeline.stage import PipelineError, PipelineStage
 
@@ -44,7 +44,7 @@ class FixStage(PipelineStage):
             )
             return ctx
 
-        plan = ctx.migration_plan
+        plan = ctx.migration_plan or MigrationPlan()
         build_errors = ctx.validation_result.build_errors
 
         # Build lookup maps for fast access
@@ -95,9 +95,12 @@ class FixStage(PipelineStage):
             # when the original file is not in the IR (should not happen in
             # normal usage, but guards against incomplete context).
             if source_file is None:
-                from rosforge.models.ir import FileType, SourceFile as SF  # noqa: PLC0415
+                from rosforge.models.ir import (
+                    FileType,
+                    SourceFile,
+                )
 
-                source_file = SF(
+                source_file = SourceFile(
                     relative_path=tf.source_path,
                     file_type=FileType.CPP,
                     content=tf.original_content,
@@ -110,7 +113,7 @@ class FixStage(PipelineStage):
                     error_message=error_message,
                     plan=plan,
                 )
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 ctx.errors.append(
                     PipelineError(
                         stage_name=self.name,
@@ -121,9 +124,7 @@ class FixStage(PipelineStage):
                 continue
 
             # Update in-memory record
-            updated_tf = tf.model_copy(
-                update={"transformed_content": fixed.transformed_content}
-            )
+            updated_tf = tf.model_copy(update={"transformed_content": fixed.transformed_content})
             ctx.transformed_files[tf_index] = updated_tf
 
             # Write updated file back to output_path

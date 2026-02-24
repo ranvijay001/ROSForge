@@ -7,13 +7,11 @@ import re
 from difflib import SequenceMatcher
 
 from rosforge.models.plan import (
-    CostEstimate,
     MigrationPlan,
     TransformAction,
     TransformStrategy,
 )
 from rosforge.models.result import ChangeEntry, TransformedFile
-from rosforge.utils.subprocess_utils import extract_json_from_text
 
 # ---------------------------------------------------------------------------
 # Cost tables (USD per 1 000 tokens — approximate public pricing)
@@ -56,6 +54,7 @@ def _lookup_cost(engine_name: str) -> tuple[float, float]:
 # ---------------------------------------------------------------------------
 # Enhanced JSON extraction
 # ---------------------------------------------------------------------------
+
 
 def _try_parse_json(text: str) -> dict | None:
     """Try to parse text as JSON, returning None on failure."""
@@ -168,6 +167,7 @@ def _extract_dict(raw: str) -> dict | None:
 # Confidence scoring
 # ---------------------------------------------------------------------------
 
+
 def compute_confidence(transformed_content: str, original_content: str) -> float:
     """Compute a confidence score for a transformed file.
 
@@ -205,8 +205,13 @@ def compute_confidence(transformed_content: str, original_content: str) -> float
 
     # Bonus: ROS2 markers present in transformed output
     ros2_markers = [
-        "rclcpp", "rclpy", "ament", "rclcpp::Node",
-        "create_publisher", "create_subscription", "get_logger",
+        "rclcpp",
+        "rclpy",
+        "ament",
+        "rclcpp::Node",
+        "create_publisher",
+        "create_subscription",
+        "get_logger",
     ]
     transformed_lower = transformed_content.lower()
     ros2_bonus = sum(0.05 for m in ros2_markers if m.lower() in transformed_lower)
@@ -214,8 +219,12 @@ def compute_confidence(transformed_content: str, original_content: str) -> float
 
     # Penalty: ROS1 markers still present (incomplete migration)
     ros1_markers = [
-        "ros::NodeHandle", "rospy.init_node", "nh.advertise",
-        "nh.subscribe", "ros::Publisher", "catkin_package(",
+        "ros::NodeHandle",
+        "rospy.init_node",
+        "nh.advertise",
+        "nh.subscribe",
+        "ros::Publisher",
+        "catkin_package(",
     ]
     ros1_penalty = sum(0.05 for m in ros1_markers if m in transformed_content)
     ros1_penalty = min(ros1_penalty, 0.30)
@@ -227,6 +236,7 @@ def compute_confidence(transformed_content: str, original_content: str) -> float
 # ---------------------------------------------------------------------------
 # Cost estimation
 # ---------------------------------------------------------------------------
+
 
 def estimate_cost_usd(
     engine_name: str,
@@ -252,6 +262,7 @@ def estimate_cost_usd(
 # ---------------------------------------------------------------------------
 # Response parsers
 # ---------------------------------------------------------------------------
+
 
 def parse_transform_response(raw: str) -> TransformedFile:
     """Parse an AI transform response into a TransformedFile.

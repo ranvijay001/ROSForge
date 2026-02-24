@@ -151,6 +151,7 @@ def create_migration_commit(output_path: Path | str, package_name: str) -> bool:
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+
 def _minimal_git_env() -> dict[str, str]:
     """Return a minimal environment that git needs for committing."""
     import os

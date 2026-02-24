@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-from rosforge.knowledge import ROS1_TO_ROS2_PACKAGES, ROSCPP_TO_RCLCPP, ROSPY_TO_RCLPY
+from rosforge.knowledge import ROS1_TO_ROS2_PACKAGES
 from rosforge.models.ir import FileType, PackageIR, SourceFile
-from rosforge.models.plan import CostEstimate, Confidence
+from rosforge.models.plan import Confidence, CostEstimate
 from rosforge.models.report import AnalysisReport, DependencyReport, FileComplexity
 from rosforge.pipeline.runner import PipelineContext
 from rosforge.pipeline.stage import PipelineError, PipelineStage
 
 # Complexity thresholds
-_COMPLEXITY_LOW = 50       # lines
-_COMPLEXITY_MEDIUM = 200   # lines
-_COMPLEXITY_HIGH = 500     # lines
+_COMPLEXITY_LOW = 50  # lines
+_COMPLEXITY_MEDIUM = 200  # lines
+_COMPLEXITY_HIGH = 500  # lines
 
 # Risk weights
 _WEIGHT_API_USAGE = 0.05
@@ -72,10 +72,20 @@ def _resolve_dependency(dep_name: str) -> DependencyReport:
 
     # Known system/third-party packages that carry over unchanged
     passthrough = {
-        "std_msgs", "geometry_msgs", "sensor_msgs", "nav_msgs",
-        "actionlib_msgs", "diagnostic_msgs", "visualization_msgs",
-        "tf2", "tf2_ros", "tf2_geometry_msgs",
-        "eigen", "boost", "opencv", "pcl",
+        "std_msgs",
+        "geometry_msgs",
+        "sensor_msgs",
+        "nav_msgs",
+        "actionlib_msgs",
+        "diagnostic_msgs",
+        "visualization_msgs",
+        "tf2",
+        "tf2_ros",
+        "tf2_geometry_msgs",
+        "eigen",
+        "boost",
+        "opencv",
+        "pcl",
     }
     if dep_name in passthrough:
         return DependencyReport(
@@ -151,9 +161,7 @@ class AnalyzeStage(PipelineStage):
         ir = ctx.package_ir
 
         # 1. Resolve dependencies
-        dependency_reports = [
-            _resolve_dependency(dep.name) for dep in ir.dependencies
-        ]
+        dependency_reports = [_resolve_dependency(dep.name) for dep in ir.dependencies]
 
         # 2. Classify each source file
         file_complexities = [
@@ -191,9 +199,7 @@ class AnalyzeStage(PipelineStage):
             )
 
         # 5. Summary
-        ai_driven_count = sum(
-            1 for f in file_complexities if f.transform_strategy == "ai_driven"
-        )
+        ai_driven_count = sum(1 for f in file_complexities if f.transform_strategy == "ai_driven")
         summary = (
             f"Package '{ir.metadata.name}' has {ir.total_files} files "
             f"({ir.cpp_files} C++, {ir.python_files} Python, "

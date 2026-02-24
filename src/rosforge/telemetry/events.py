@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -46,5 +45,5 @@ class AnalyzeRunEvent(TelemetryEvent):
     """Fired after a package analysis pass."""
 
     event_type: str = "analyze_run"
-    complexity_estimate: Optional[str] = None
+    complexity_estimate: str | None = None
     dependency_count: int

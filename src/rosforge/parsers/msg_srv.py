@@ -9,13 +9,28 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Built-in ROS1 field types
-_BUILTIN_TYPES = frozenset({
-    "bool", "int8", "uint8", "int16", "uint16", "int32", "uint32",
-    "int64", "uint64", "float32", "float64", "string", "time", "duration",
-    "byte", "char",
-    # Header is technically a message but treated as builtin
-    "Header",
-})
+_BUILTIN_TYPES = frozenset(
+    {
+        "bool",
+        "int8",
+        "uint8",
+        "int16",
+        "uint16",
+        "int32",
+        "uint32",
+        "int64",
+        "uint64",
+        "float32",
+        "float64",
+        "string",
+        "time",
+        "duration",
+        "byte",
+        "char",
+        # Header is technically a message but treated as builtin
+        "Header",
+    }
+)
 
 _COMMENT_RE = re.compile(r"#.*$")
 _CONSTANT_RE = re.compile(r"^(\w+)\s+(\w+)\s*=\s*(.+)$")
@@ -44,11 +59,13 @@ def _parse_fields(lines: list[str]) -> tuple[list[dict], list[dict]]:
         # Try constant first: TYPE NAME = VALUE
         m = _CONSTANT_RE.match(line)
         if m:
-            constants.append({
-                "type": m.group(1),
-                "name": m.group(2),
-                "value": m.group(3).strip(),
-            })
+            constants.append(
+                {
+                    "type": m.group(1),
+                    "name": m.group(2),
+                    "value": m.group(3).strip(),
+                }
+            )
             continue
 
         # Try field: TYPE NAME  (with optional array suffix on type)
@@ -67,14 +84,18 @@ def _parse_fields(lines: list[str]) -> tuple[list[dict], list[dict]]:
             else:
                 base_type = raw_type
 
-            is_builtin = base_type in _BUILTIN_TYPES or "/" not in base_type and base_type[0].islower()
-            fields.append({
-                "type": base_type,
-                "name": name,
-                "array": array,
-                "array_size": array_size,
-                "builtin": is_builtin,
-            })
+            is_builtin = base_type in _BUILTIN_TYPES or (
+                "/" not in base_type and base_type[0].islower()
+            )
+            fields.append(
+                {
+                    "type": base_type,
+                    "name": name,
+                    "array": array,
+                    "array_size": array_size,
+                    "builtin": is_builtin,
+                }
+            )
 
     return fields, constants
 
@@ -120,7 +141,7 @@ def parse_msg_srv(path: Path) -> dict:
             sep_idx = len(lines)
 
         req_lines = lines[:sep_idx]
-        res_lines = lines[sep_idx + 1:] if sep_idx < len(lines) else []
+        res_lines = lines[sep_idx + 1 :] if sep_idx < len(lines) else []
 
         req_fields, req_consts = _parse_fields(req_lines)
         res_fields, res_consts = _parse_fields(res_lines)

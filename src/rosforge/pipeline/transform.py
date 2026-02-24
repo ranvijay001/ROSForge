@@ -74,10 +74,9 @@ def _build_plan(ir) -> MigrationPlan:
 def _rule_based_transform(
     source_file: SourceFile,
     action: TransformAction,
-    ctx: "PipelineContext",
+    ctx: PipelineContext,
 ) -> TransformedFile:
     """Apply deterministic knowledge-base rules to a file."""
-    from rosforge.pipeline.runner import PipelineContext  # noqa: PLC0415 (local to avoid circular)
 
     content = source_file.content
     changes: list[ChangeEntry] = []
@@ -86,22 +85,26 @@ def _rule_based_transform(
     if source_file.file_type == FileType.PACKAGE_XML and ir is not None:
         new_content = transform_package_xml(ir.metadata, ir.dependencies)
         if new_content != content:
-            changes.append(ChangeEntry(
-                description="Converted package.xml from format=2 (catkin) to format=3 (ament_cmake)",
-                reason="ROS2 requires package.xml format 3 with ament_cmake build type",
-            ))
+            changes.append(
+                ChangeEntry(
+                    description="Converted package.xml from format=2 (catkin) to format=3 (ament_cmake)",
+                    reason="ROS2 requires package.xml format 3 with ament_cmake build type",
+                )
+            )
     elif source_file.file_type == FileType.CMAKE:
-        from rosforge.parsers.cmake import parse_cmake  # noqa: PLC0415
+        from rosforge.parsers.cmake import parse_cmake
 
         cmake_path = ctx.source_path / source_file.relative_path
         cmake_info = parse_cmake(cmake_path) if cmake_path.exists() else {}
         catkin_deps = cmake_info.get("catkin_packages", [])
         new_content = transform_cmake(content, catkin_deps)
         if new_content != content:
-            changes.append(ChangeEntry(
-                description="Converted CMakeLists.txt from catkin to ament_cmake",
-                reason="ROS2 uses ament_cmake build system instead of catkin",
-            ))
+            changes.append(
+                ChangeEntry(
+                    description="Converted CMakeLists.txt from catkin to ament_cmake",
+                    reason="ROS2 uses ament_cmake build system instead of catkin",
+                )
+            )
     else:
         new_content = content  # MSG/SRV: pass through for now
 
@@ -172,7 +175,7 @@ class TransformStage(PipelineStage):
                 try:
                     result = engine.transform(sf, plan)
                     result.original_content = sf.content
-                except Exception as exc:  # noqa: BLE001
+                except Exception as exc:
                     ctx.errors.append(
                         PipelineError(
                             stage_name=self.name,

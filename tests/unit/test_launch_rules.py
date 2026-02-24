@@ -6,7 +6,6 @@ import pytest
 
 from rosforge.knowledge.launch_rules import transform_launch_xml
 
-
 SIMPLE_LAUNCH = """\
 <launch>
   <node pkg="my_pkg" type="talker" name="talker_node" output="screen"/>

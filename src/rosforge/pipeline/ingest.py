@@ -27,8 +27,7 @@ class IngestStage(PipelineStage):
                 PipelineError(
                     stage_name=self.name,
                     message=(
-                        f"No package.xml found in {ctx.source_path}. "
-                        "Is this a valid ROS1 package?"
+                        f"No package.xml found in {ctx.source_path}. Is this a valid ROS1 package?"
                     ),
                     recoverable=False,
                 )

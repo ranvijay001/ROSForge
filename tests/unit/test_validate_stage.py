@@ -45,9 +45,7 @@ class TestParseBuildErrors:
 
 class TestValidateStage:
     def _make_ctx(self, tmp_path: Path, **validation_kwargs) -> PipelineContext:
-        config = RosForgeConfig(
-            validation=ValidationConfig(**validation_kwargs)
-        )
+        config = RosForgeConfig(validation=ValidationConfig(**validation_kwargs))
         return PipelineContext(
             source_path=tmp_path / "src",
             output_path=tmp_path / "out",
@@ -83,8 +81,10 @@ class TestValidateStage:
             parsed_json={"status": "ok"},
         )
 
-        with patch("shutil.which", return_value="/usr/bin/colcon"), \
-             patch("rosforge.pipeline.validate.run_command", return_value=mock_result):
+        with (
+            patch("shutil.which", return_value="/usr/bin/colcon"),
+            patch("rosforge.pipeline.validate.run_command", return_value=mock_result),
+        ):
             result_ctx = stage.execute(ctx)
 
         assert result_ctx.validation_result is not None
@@ -103,8 +103,10 @@ class TestValidateStage:
             error_message="Command exited with code 1",
         )
 
-        with patch("shutil.which", return_value="/usr/bin/colcon"), \
-             patch("rosforge.pipeline.validate.run_command", return_value=mock_result):
+        with (
+            patch("shutil.which", return_value="/usr/bin/colcon"),
+            patch("rosforge.pipeline.validate.run_command", return_value=mock_result),
+        ):
             result_ctx = stage.execute(ctx)
 
         assert result_ctx.validation_result is not None
@@ -131,9 +133,11 @@ class TestValidateStage:
             calls.append(cmd)
             return mock_result
 
-        with patch("shutil.which", return_value="/usr/bin/colcon"), \
-             patch("rosforge.pipeline.validate.run_command", side_effect=fake_run):
-            result_ctx = stage.execute(ctx)
+        with (
+            patch("shutil.which", return_value="/usr/bin/colcon"),
+            patch("rosforge.pipeline.validate.run_command", side_effect=fake_run),
+        ):
+            stage.execute(ctx)
 
         # rosdep call should have been made (it's best-effort, so we check it tried)
         rosdep_calls = [c for c in calls if c and "rosdep" in c[0]]

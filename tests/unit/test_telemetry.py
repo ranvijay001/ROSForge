@@ -90,6 +90,7 @@ class TestTelemetryCollector:
         lines = log_path.read_text().splitlines()
         assert len(lines) == 1
         import json
+
         data = json.loads(lines[0])
         assert data["event_type"] == "build_result"
 

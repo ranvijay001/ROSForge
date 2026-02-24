@@ -14,15 +14,15 @@ from rosforge.models.ir import FileType, PackageIR, PackageMetadata, SourceFile
 from rosforge.models.plan import MigrationPlan, TransformAction, TransformStrategy
 from rosforge.models.result import SubprocessResult
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture()
 def sample_ir() -> PackageIR:
     sf = SourceFile(
         relative_path="src/talker.cpp",
         file_type=FileType.CPP,
-        content='#include <ros/ros.h>\nint main() { ros::init(); }',
+        content="#include <ros/ros.h>\nint main() { ros::init(); }",
         line_count=2,
     )
     return PackageIR(
@@ -56,6 +56,7 @@ def engine_config() -> EngineConfig:
 
 
 # ── PromptBuilder tests ───────────────────────────────────────────────────────
+
 
 class TestPromptBuilder:
     def test_estimate_tokens_empty(self):
@@ -97,6 +98,7 @@ class TestPromptBuilder:
 
 
 # ── ResponseParser tests ──────────────────────────────────────────────────────
+
 
 class TestResponseParser:
     VALID_TRANSFORM_JSON = """{
@@ -162,6 +164,7 @@ class TestResponseParser:
 
 # ── ClaudeCLIEngine tests (mocked subprocess) ─────────────────────────────────
 
+
 class TestClaudeCLIEngine:
     def test_health_check_success(self, engine_config):
         from rosforge.engine.claude.cli_backend import ClaudeCLIEngine
@@ -184,7 +187,8 @@ class TestClaudeCLIEngine:
 
         valid_response = '{"package_name":"test_pkg","target_ros2_distro":"humble","overall_confidence":0.8,"summary":"ok","warnings":[],"actions":[]}'
         mock_result = SubprocessResult(
-            status="success", exit_code=0,
+            status="success",
+            exit_code=0,
             raw_stdout=valid_response,
             parsed_json={"package_name": "test_pkg"},
         )
@@ -198,7 +202,8 @@ class TestClaudeCLIEngine:
 
         valid_response = '{"source_path":"src/talker.cpp","target_path":"src/talker.cpp","transformed_content":"// ros2","confidence":0.9,"strategy_used":"ai_driven","warnings":[],"changes":[]}'
         mock_result = SubprocessResult(
-            status="success", exit_code=0,
+            status="success",
+            exit_code=0,
             raw_stdout=valid_response,
             parsed_json={"source_path": "src/talker.cpp"},
         )

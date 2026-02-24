@@ -41,9 +41,7 @@ class TestReportStage:
                 target_path="src/node.cpp",
                 confidence=0.9,
                 strategy_used="rule_based",
-                changes=[
-                    ChangeEntry(description="Replaced ros::init", line_range="5-5")
-                ],
+                changes=[ChangeEntry(description="Replaced ros::init", line_range="5-5")],
             ),
             TransformedFile(
                 source_path="scripts/monitor.py",
@@ -59,7 +57,7 @@ class TestReportStage:
         ctx = self._make_ctx(tmp_path)
         (tmp_path / "out").mkdir(parents=True)
         stage = ReportStage()
-        result_ctx = stage.execute(ctx)
+        stage.execute(ctx)
         report_path = tmp_path / "out" / "migration_report.md"
         assert report_path.exists()
 

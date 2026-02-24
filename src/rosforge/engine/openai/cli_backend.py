@@ -7,7 +7,11 @@ from pathlib import Path
 
 from rosforge.engine.base import EngineInterface
 from rosforge.engine.prompt_builder import PromptBuilder
-from rosforge.engine.response_parser import parse_analyze_response, parse_fix_response, parse_transform_response
+from rosforge.engine.response_parser import (
+    parse_analyze_response,
+    parse_fix_response,
+    parse_transform_response,
+)
 from rosforge.models.config import EngineConfig
 from rosforge.models.ir import PackageIR, SourceFile
 from rosforge.models.plan import CostEstimate, MigrationPlan
@@ -44,7 +48,7 @@ class OpenAICLIEngine(EngineInterface):
         Raises:
             RuntimeError: If the CLI call fails or times out.
         """
-        import json  # noqa: PLC0415
+        import json
 
         verbose = bool(getattr(self._config, "verbose", False))
         model = self._config.model or "gpt-4o"
@@ -85,9 +89,7 @@ class OpenAICLIEngine(EngineInterface):
             self._maybe_log(payload_str, result.raw_stdout)
 
         if result.status == "timeout":
-            raise RuntimeError(
-                f"OpenAI CLI timed out after {self._config.timeout_seconds}s"
-            )
+            raise RuntimeError(f"OpenAI CLI timed out after {self._config.timeout_seconds}s")
         if result.status == "error":
             raise RuntimeError(f"OpenAI CLI error: {result.error_message}")
 
@@ -103,17 +105,17 @@ class OpenAICLIEngine(EngineInterface):
         Returns:
             The assistant message content string, or raw if extraction fails.
         """
-        import json  # noqa: PLC0415
+        import json
 
         try:
             data = json.loads(raw)
             return data["choices"][0]["message"]["content"]
-        except Exception:  # noqa: BLE001
+        except Exception:
             return raw
 
     def _maybe_log(self, prompt: str, response: str) -> None:
         """Write I/O to ~/.rosforge/logs/ when verbose mode is active."""
-        import time  # noqa: PLC0415
+        import time
 
         self._log_dir.mkdir(parents=True, exist_ok=True)
         ts = int(time.time())
@@ -154,7 +156,9 @@ class OpenAICLIEngine(EngineInterface):
     def estimate_cost(self, package_ir: PackageIR) -> CostEstimate:
         system_prompt, user_prompt = self._builder.build_analyze_prompt(package_ir)
         total_chars = sum(len(f.content) for f in package_ir.source_files)
-        input_tokens = PromptBuilder.estimate_tokens(system_prompt + user_prompt + "X" * total_chars)
+        input_tokens = PromptBuilder.estimate_tokens(
+            system_prompt + user_prompt + "X" * total_chars
+        )
         output_tokens = int(input_tokens * 0.20)
         return CostEstimate(
             total_input_tokens=input_tokens,

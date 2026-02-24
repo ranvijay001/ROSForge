@@ -6,17 +6,16 @@ from pathlib import Path
 
 import pytest
 
-from rosforge.knowledge.custom_rules import CustomRules, load_custom_rules
+from rosforge.engine.prompt_builder import PromptBuilder
 from rosforge.knowledge import (
     CATKIN_TO_AMENT,
+    ROS1_TO_ROS2_PACKAGES,
     ROSCPP_TO_RCLCPP,
     ROSPY_TO_RCLPY,
-    ROS1_TO_ROS2_PACKAGES,
     merge_custom_rules,
 )
-from rosforge.engine.prompt_builder import PromptBuilder
+from rosforge.knowledge.custom_rules import CustomRules, load_custom_rules
 from rosforge.models.ir import FileType, SourceFile
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -222,6 +221,7 @@ class TestPromptBuilderIncludesCustom:
         pb = PromptBuilder(custom_rules=custom)
         f = _make_source_file("src/node.cpp", FileType.CPP)
         from rosforge.models.plan import MigrationPlan, TransformAction, TransformStrategy
+
         plan = MigrationPlan(
             package_name="test_pkg",
             actions=[
@@ -242,6 +242,7 @@ class TestPromptBuilderIncludesCustom:
         pb = PromptBuilder(custom_rules=custom)
         f = _make_source_file("nodes/node.py", FileType.PYTHON)
         from rosforge.models.plan import MigrationPlan, TransformAction, TransformStrategy
+
         plan = MigrationPlan(
             package_name="test_pkg",
             actions=[
@@ -261,6 +262,7 @@ class TestPromptBuilderIncludesCustom:
         pb = PromptBuilder()
         f = _make_source_file("src/node.cpp", FileType.CPP)
         from rosforge.models.plan import MigrationPlan, TransformAction, TransformStrategy
+
         plan = MigrationPlan(
             package_name="test_pkg",
             actions=[
@@ -277,7 +279,9 @@ class TestPromptBuilderIncludesCustom:
 
     def test_custom_rules_none_does_not_break_analyze_prompt(self) -> None:
         from pathlib import Path
+
         from rosforge.models.ir import PackageIR, PackageMetadata
+
         pb = PromptBuilder(custom_rules=None)
         ir = PackageIR(
             source_path=Path("/tmp/pkg"),

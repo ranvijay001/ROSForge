@@ -60,33 +60,39 @@ def merge_custom_rules(
     # Built-in entries follow; on key collision the custom value wins because
     # the custom dict was merged first and the built-in update would overwrite
     # it — so we filter out colliding built-in keys instead.
-    cpp = {**custom.cpp_mappings, **{k: v for k, v in cpp_base.items() if k not in custom.cpp_mappings}}
-    python = {**custom.python_mappings, **{k: v for k, v in python_base.items() if k not in custom.python_mappings}}
-    package = {**custom.package_mappings, **{k: v for k, v in package_base.items() if k not in custom.package_mappings}}
-    cmake = {**custom.cmake_mappings, **{k: v for k, v in cmake_base.items() if k not in custom.cmake_mappings}}
+    cpp = {
+        **custom.cpp_mappings,
+        **{k: v for k, v in cpp_base.items() if k not in custom.cpp_mappings},
+    }
+    python = {
+        **custom.python_mappings,
+        **{k: v for k, v in python_base.items() if k not in custom.python_mappings},
+    }
+    package = {
+        **custom.package_mappings,
+        **{k: v for k, v in package_base.items() if k not in custom.package_mappings},
+    }
+    cmake = {
+        **custom.cmake_mappings,
+        **{k: v for k, v in cmake_base.items() if k not in custom.cmake_mappings},
+    }
     return cpp, python, package, cmake
 
 
 __all__ = [
-    # api_mappings
+    "CATKIN_TO_AMENT",
+    "ROS1_TO_ROS2_PACKAGES",
     "ROSCPP_TO_RCLCPP",
     "ROSPY_TO_RCLPY",
-    "get_mapping",
-    # cmake_rules
-    "CATKIN_TO_AMENT",
-    "transform_cmake",
-    # custom_rules
     "CustomRules",
+    "get_mapping",
     "load_custom_rules",
     "merge_custom_rules",
-    # launch_rules
-    "transform_launch_xml",
-    # msg_srv_rules
-    "transform_msg",
-    "transform_srv",
-    "transform_action",
-    # package_xml_rules
-    "ROS1_TO_ROS2_PACKAGES",
     "normalize_format1_dependencies",
+    "transform_action",
+    "transform_cmake",
+    "transform_launch_xml",
+    "transform_msg",
     "transform_package_xml",
+    "transform_srv",
 ]

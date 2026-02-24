@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
+
+if TYPE_CHECKING:
+    from rosforge.pipeline.runner import PipelineContext
 
 
 class PipelineError(BaseModel):
@@ -24,7 +28,7 @@ class PipelineStage(ABC):
         """Human-readable stage identifier."""
 
     @abstractmethod
-    def execute(self, ctx: "PipelineContext") -> "PipelineContext":  # noqa: F821
+    def execute(self, ctx: PipelineContext) -> PipelineContext:
         """Run this stage against the provided context.
 
         Args:

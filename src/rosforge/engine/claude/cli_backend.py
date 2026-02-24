@@ -7,7 +7,11 @@ from pathlib import Path
 
 from rosforge.engine.base import EngineInterface
 from rosforge.engine.prompt_builder import PromptBuilder
-from rosforge.engine.response_parser import parse_analyze_response, parse_fix_response, parse_transform_response
+from rosforge.engine.response_parser import (
+    parse_analyze_response,
+    parse_fix_response,
+    parse_transform_response,
+)
 from rosforge.models.config import EngineConfig
 from rosforge.models.ir import PackageIR, SourceFile
 from rosforge.models.plan import CostEstimate, MigrationPlan
@@ -48,10 +52,7 @@ class ClaudeCLIEngine(EngineInterface):
         combined = f"{system_prompt}\n\n{user_prompt}"
         verbose = self._config.mode == "cli" and bool(getattr(self._config, "verbose", False))
 
-        if self._config.model:
-            model_args = ["--model", self._config.model]
-        else:
-            model_args = []
+        model_args = ["--model", self._config.model] if self._config.model else []
 
         if len(combined.encode()) > _LARGE_PROMPT_BYTES:
             # Write to temp file, pipe via stdin
@@ -61,23 +62,23 @@ class ClaudeCLIEngine(EngineInterface):
                 tmp.write(combined)
                 tmp_path = tmp.name
 
-            cmd = ["claude", "-p", "--output-format", "json"] + model_args
+            cmd = ["claude", "-p", "--output-format", "json", *model_args]
             # Pass file content via shell redirect
             result = run_command(
-                cmd + ["--stdin-file", tmp_path],
+                [*cmd, "--stdin-file", tmp_path],
                 timeout=self._config.timeout_seconds,
                 verbose=verbose,
             )
             if not result.ok:
                 # Fallback: try with the prompt text directly (truncated)
-                short = combined[: _LARGE_PROMPT_BYTES]
+                short = combined[:_LARGE_PROMPT_BYTES]
                 result = run_command(
-                    ["claude", "-p", short, "--output-format", "json"] + model_args,
+                    ["claude", "-p", short, "--output-format", "json", *model_args],
                     timeout=self._config.timeout_seconds,
                     verbose=verbose,
                 )
         else:
-            cmd = ["claude", "-p", combined, "--output-format", "json"] + model_args
+            cmd = ["claude", "-p", combined, "--output-format", "json", *model_args]
             result = run_command(
                 cmd,
                 timeout=self._config.timeout_seconds,
@@ -88,9 +89,7 @@ class ClaudeCLIEngine(EngineInterface):
             self._maybe_log(combined, result.raw_stdout)
 
         if result.status == "timeout":
-            raise RuntimeError(
-                f"Claude CLI timed out after {self._config.timeout_seconds}s"
-            )
+            raise RuntimeError(f"Claude CLI timed out after {self._config.timeout_seconds}s")
         if result.status == "error":
             raise RuntimeError(f"Claude CLI error: {result.error_message}")
 
@@ -99,7 +98,7 @@ class ClaudeCLIEngine(EngineInterface):
 
     def _maybe_log(self, prompt: str, response: str) -> None:
         """Write I/O to ~/.rosforge/logs/ when verbose mode is active."""
-        import time  # noqa: PLC0415
+        import time
 
         if not getattr(self._config, "verbose", False):
             return
@@ -142,7 +141,9 @@ class ClaudeCLIEngine(EngineInterface):
     def estimate_cost(self, package_ir: PackageIR) -> CostEstimate:
         system_prompt, user_prompt = self._builder.build_analyze_prompt(package_ir)
         total_chars = sum(len(f.content) for f in package_ir.source_files)
-        input_tokens = PromptBuilder.estimate_tokens(system_prompt + user_prompt + "X" * total_chars)
+        input_tokens = PromptBuilder.estimate_tokens(
+            system_prompt + user_prompt + "X" * total_chars
+        )
         # Claude CLI: output typically 20 % of input
         output_tokens = int(input_tokens * 0.20)
         return CostEstimate(

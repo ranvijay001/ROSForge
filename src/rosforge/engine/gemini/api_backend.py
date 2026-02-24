@@ -5,12 +5,14 @@ from __future__ import annotations
 try:
     # Prefer the new google-genai SDK
     import google.genai as genai  # type: ignore[import]
+
     _GENAI_AVAILABLE = True
     _GENAI_NEW = True
 except ImportError:
     _GENAI_NEW = False
     try:
         import google.generativeai as genai  # type: ignore[import]
+
         _GENAI_AVAILABLE = True
     except ImportError:
         genai = None  # type: ignore[assignment]
@@ -18,7 +20,11 @@ except ImportError:
 
 from rosforge.engine.base import EngineInterface
 from rosforge.engine.prompt_builder import PromptBuilder
-from rosforge.engine.response_parser import parse_analyze_response, parse_fix_response, parse_transform_response
+from rosforge.engine.response_parser import (
+    parse_analyze_response,
+    parse_fix_response,
+    parse_transform_response,
+)
 from rosforge.models.config import EngineConfig
 from rosforge.models.ir import PackageIR, SourceFile
 from rosforge.models.plan import CostEstimate, MigrationPlan
@@ -38,8 +44,7 @@ class GeminiAPIEngine(EngineInterface):
         self._builder = PromptBuilder()
         if not _GENAI_AVAILABLE:
             raise ImportError(
-                "A Gemini SDK is not installed. "
-                "Install it with: pip install google-genai"
+                "A Gemini SDK is not installed. Install it with: pip install google-genai"
             )
         api_key = config.api_key or ""
         if _GENAI_NEW:
@@ -97,7 +102,7 @@ class GeminiAPIEngine(EngineInterface):
                     request_options={"timeout": self._config.timeout_seconds},
                 )
                 return response.text or ""
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise RuntimeError(f"Gemini API error: {exc}") from exc
 
     # ------------------------------------------------------------------
@@ -134,7 +139,9 @@ class GeminiAPIEngine(EngineInterface):
     def estimate_cost(self, package_ir: PackageIR) -> CostEstimate:
         system_prompt, user_prompt = self._builder.build_analyze_prompt(package_ir)
         total_chars = sum(len(f.content) for f in package_ir.source_files)
-        input_tokens = PromptBuilder.estimate_tokens(system_prompt + user_prompt + "X" * total_chars)
+        input_tokens = PromptBuilder.estimate_tokens(
+            system_prompt + user_prompt + "X" * total_chars
+        )
         output_tokens = int(input_tokens * 0.20)
         cost_usd = (
             (input_tokens / 1_000_000) * _GEMINI_INPUT_COST_PER_1M
@@ -163,5 +170,5 @@ class GeminiAPIEngine(EngineInterface):
                     request_options={"timeout": 10},
                 )
                 return bool(response.text)
-        except Exception:  # noqa: BLE001
+        except Exception:
             return False

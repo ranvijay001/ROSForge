@@ -45,17 +45,15 @@ _PRIMITIVE_TYPES: frozenset[str] = frozenset(
 
 # Regex matching a field declaration line: [type][array?] field_name [= default]
 _FIELD_RE = re.compile(
-    r"^(\s*)"                         # leading whitespace
-    r"([\w/]+)"                       # type (may include /)
-    r"(\[\d*\])?"                     # optional array suffix
-    r"(\s+\w+)"                       # field name
-    r"(\s*(?:=.*)?)$"                 # optional default value
+    r"^(\s*)"  # leading whitespace
+    r"([\w/]+)"  # type (may include /)
+    r"(\[\d*\])?"  # optional array suffix
+    r"(\s+\w+)"  # field name
+    r"(\s*(?:=.*)?)$"  # optional default value
 )
 
 # Regex matching a constant declaration: TYPE CONST_NAME = VALUE
-_CONST_RE = re.compile(
-    r"^(\s*)([\w/]+)(\s+\w+\s*=\s*.+)$"
-)
+_CONST_RE = re.compile(r"^(\s*)([\w/]+)(\s+\w+\s*=\s*.+)$")
 
 
 def _remap_type(type_str: str) -> str:

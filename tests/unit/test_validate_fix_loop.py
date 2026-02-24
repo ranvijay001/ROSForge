@@ -13,7 +13,6 @@ from rosforge.models.result import BuildError, TransformedFile, ValidationResult
 from rosforge.pipeline.runner import PipelineContext
 from rosforge.pipeline.validate_fix_loop import ValidateFixLoopStage
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -68,8 +67,10 @@ class TestValidateFixLoopPassOnFirstValidate:
         ctx = _make_ctx(tmp_path)
         ctx.engine = _make_engine()
 
-        with patch("rosforge.pipeline.validate_fix_loop.ValidateStage") as MockValidate, \
-             patch("rosforge.pipeline.validate_fix_loop.FixStage") as MockFix:
+        with (
+            patch("rosforge.pipeline.validate_fix_loop.ValidateStage") as MockValidate,
+            patch("rosforge.pipeline.validate_fix_loop.FixStage") as MockFix,
+        ):
             mock_validate_instance = MagicMock()
             mock_validate_instance.execute.side_effect = lambda c: (
                 setattr(c, "validation_result", _success_result()) or c
@@ -102,8 +103,10 @@ class TestValidateFixLoopFixThenPass:
             c.validation_result = result
             return c
 
-        with patch("rosforge.pipeline.validate_fix_loop.ValidateStage") as MockValidate, \
-             patch("rosforge.pipeline.validate_fix_loop.FixStage") as MockFix:
+        with (
+            patch("rosforge.pipeline.validate_fix_loop.ValidateStage") as MockValidate,
+            patch("rosforge.pipeline.validate_fix_loop.FixStage") as MockFix,
+        ):
             mock_validate_instance = MagicMock()
             mock_validate_instance.execute.side_effect = fake_validate_execute
             MockValidate.return_value = mock_validate_instance
@@ -129,8 +132,10 @@ class TestValidateFixLoopExhaustsAttempts:
             c.validation_result = _failure_result()
             return c
 
-        with patch("rosforge.pipeline.validate_fix_loop.ValidateStage") as MockValidate, \
-             patch("rosforge.pipeline.validate_fix_loop.FixStage") as MockFix:
+        with (
+            patch("rosforge.pipeline.validate_fix_loop.ValidateStage") as MockValidate,
+            patch("rosforge.pipeline.validate_fix_loop.FixStage") as MockFix,
+        ):
             mock_validate_instance = MagicMock()
             mock_validate_instance.execute.side_effect = always_fail
             MockValidate.return_value = mock_validate_instance
@@ -156,8 +161,10 @@ class TestValidateFixLoopExhaustsAttempts:
             c.validation_result = _failure_result()
             return c
 
-        with patch("rosforge.pipeline.validate_fix_loop.ValidateStage") as MockValidate, \
-             patch("rosforge.pipeline.validate_fix_loop.FixStage") as MockFix:
+        with (
+            patch("rosforge.pipeline.validate_fix_loop.ValidateStage") as MockValidate,
+            patch("rosforge.pipeline.validate_fix_loop.FixStage") as MockFix,
+        ):
             mock_validate_instance = MagicMock()
             mock_validate_instance.execute.side_effect = always_fail
             MockValidate.return_value = mock_validate_instance
@@ -182,8 +189,10 @@ class TestValidateFixLoopDefaultMaxAttempts:
             c.validation_result = _failure_result()
             return c
 
-        with patch("rosforge.pipeline.validate_fix_loop.ValidateStage") as MockValidate, \
-             patch("rosforge.pipeline.validate_fix_loop.FixStage") as MockFix:
+        with (
+            patch("rosforge.pipeline.validate_fix_loop.ValidateStage") as MockValidate,
+            patch("rosforge.pipeline.validate_fix_loop.FixStage") as MockFix,
+        ):
             mock_validate_instance = MagicMock()
             mock_validate_instance.execute.side_effect = always_fail
             MockValidate.return_value = mock_validate_instance

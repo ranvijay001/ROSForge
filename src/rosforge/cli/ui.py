@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Generator, Sequence
+from typing import TYPE_CHECKING
 
 from rich.console import Console
 from rich.panel import Panel
@@ -45,7 +46,9 @@ def print_summary(report: MigrationReport) -> None:
     stats.add_row("Target distro:", report.target_ros2_distro)
     if report.duration_seconds:
         stats.add_row("Duration:", f"{report.duration_seconds:.1f}s")
-    console.print(Panel(stats, title="[bold cyan]Migration Summary[/bold cyan]", border_style="cyan"))
+    console.print(
+        Panel(stats, title="[bold cyan]Migration Summary[/bold cyan]", border_style="cyan")
+    )
 
     # ── Counts ────────────────────────────────────────────────────────────
     counts = Table(show_header=False, box=None, padding=(0, 2))
@@ -155,7 +158,7 @@ def print_diff(
         filename: Display name for the diff header.
         console_obj: Optional Console instance (defaults to module-level console).
     """
-    import difflib  # noqa: PLC0415
+    import difflib
 
     _con = console_obj or console
 
@@ -176,11 +179,13 @@ def print_diff(
     diff_text = "".join(diff_lines)
 
     try:
-        from rich.syntax import Syntax  # noqa: PLC0415
+        from rich.syntax import Syntax
 
         syntax = Syntax(diff_text, "diff", theme="monokai", line_numbers=False)
-        _con.print(Panel(syntax, title=f"[bold cyan]Diff: {filename}[/bold cyan]", border_style="dim"))
-    except Exception:  # noqa: BLE001
+        _con.print(
+            Panel(syntax, title=f"[bold cyan]Diff: {filename}[/bold cyan]", border_style="dim")
+        )
+    except Exception:
         _con.print(Panel(diff_text, title=f"Diff: {filename}", border_style="dim"))
 
 
@@ -193,8 +198,7 @@ def print_workspace_progress(current: int, total: int, pkg_name: str) -> None:
         pkg_name: Name of the package being migrated.
     """
     console.print(
-        f"[cyan][[/cyan]{current}/{total}[cyan]][/cyan] "
-        f"Migrating [bold]{pkg_name}[/bold]..."
+        f"[cyan][[/cyan]{current}/{total}[cyan]][/cyan] Migrating [bold]{pkg_name}[/bold]..."
     )
 
 
@@ -205,8 +209,8 @@ def print_workspace_summary(results: list) -> None:  # list[PackageResult]
         results: List of :class:`~rosforge.pipeline.workspace_runner.PackageResult`
                  instances returned by :class:`~rosforge.pipeline.workspace_runner.WorkspaceRunner`.
     """
-    from rich import box  # noqa: PLC0415
-    from rich.table import Table  # noqa: PLC0415
+    from rich import box
+    from rich.table import Table
 
     table = Table(
         title="[bold cyan]Workspace Migration Summary[/bold cyan]",
@@ -252,20 +256,19 @@ def print_workspace_summary(results: list) -> None:  # list[PackageResult]
     )
 
 
-def print_analysis_table(report: "AnalysisReport", *, console_obj: Console | None = None) -> None:
+def print_analysis_table(report: AnalysisReport, *, console_obj: Console | None = None) -> None:
     """Print a Rich table for an AnalysisReport.
 
     Args:
         report: The AnalysisReport produced by AnalyzeStage.
         console_obj: Optional Console instance.
     """
-    from rich import box  # noqa: PLC0415
+    from rich import box
 
     _con = console_obj or console
 
     risk_color = (
-        "green" if report.risk_score < 0.3
-        else ("yellow" if report.risk_score < 0.6 else "red")
+        "green" if report.risk_score < 0.3 else ("yellow" if report.risk_score < 0.6 else "red")
     )
     _con.print(
         Panel(
@@ -289,7 +292,8 @@ def print_analysis_table(report: "AnalysisReport", *, console_obj: Console | Non
         fc_table.add_column("Strategy")
         for fc in report.file_complexities:
             complexity_color = (
-                "green" if fc.estimated_complexity <= 2
+                "green"
+                if fc.estimated_complexity <= 2
                 else ("yellow" if fc.estimated_complexity == 3 else "red")
             )
             strategy_style = "yellow" if fc.transform_strategy == "ai_driven" else "green"

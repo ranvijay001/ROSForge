@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 from rosforge.models.config import RosForgeConfig
 from rosforge.models.ir import PackageIR
@@ -40,7 +41,7 @@ class PipelineContext:
     migration_report: str = ""
 
     # --- Engine (set by TransformStage or caller for fix loop) ---
-    engine: "EngineInterface | None" = None
+    engine: EngineInterface | None = None
 
     # --- Fix loop tracking ---
     fix_attempts: int = 0
@@ -66,7 +67,7 @@ class PipelineRunner:
     def __init__(
         self,
         stages: list[PipelineStage],
-        after_stage_callback: Callable[[str, "PipelineContext"], None] | None = None,
+        after_stage_callback: Callable[[str, PipelineContext], None] | None = None,
     ) -> None:
         self._stages = stages
         self.after_stage_callback = after_stage_callback
@@ -86,8 +87,8 @@ class PipelineRunner:
         ctx.started_at = datetime.now(timezone.utc)
 
         try:
-            from rich.console import Console  # noqa: PLC0415
-            from rich.progress import Progress, SpinnerColumn, TextColumn  # noqa: PLC0415
+            from rich.console import Console
+            from rich.progress import Progress, SpinnerColumn, TextColumn
 
             console = Console()
             with Progress(
@@ -132,7 +133,7 @@ class PipelineRunner:
         """Run a single stage, catching and recording any exceptions."""
         try:
             return stage.execute(ctx)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             ctx.errors.append(
                 PipelineError(
                     stage_name=stage.name,

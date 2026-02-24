@@ -12,7 +12,6 @@ from rosforge.pipeline.runner import PipelineContext
 from rosforge.pipeline.stage import PipelineStage
 from rosforge.utils.subprocess_utils import run_command
 
-
 # Patterns for colcon/CMake/compiler error lines
 _ERROR_PATTERNS = [
     # CMake error: "CMakeFiles/..." style
@@ -106,7 +105,7 @@ class ValidateStage(PipelineStage):
                 success=False,
                 build_log="colcon not found in PATH — install colcon to enable build validation.",
                 error_count=1,
-                errors=[
+                build_errors=[
                     BuildError(
                         file_path="",
                         line_number=0,

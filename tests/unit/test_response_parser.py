@@ -18,7 +18,6 @@ from rosforge.engine.response_parser import (
 )
 from rosforge.models.plan import TransformStrategy
 
-
 # ---------------------------------------------------------------------------
 # JSON extraction helpers
 # ---------------------------------------------------------------------------
@@ -62,10 +61,7 @@ class TestExtractDict:
 class TestExtractNestedFences:
     def test_multiple_fences_returns_first_valid(self):
         payload = {"first": True}
-        text = (
-            "```json\nnot valid json\n```\n"
-            f"```json\n{json.dumps(payload)}\n```"
-        )
+        text = f"```json\nnot valid json\n```\n```json\n{json.dumps(payload)}\n```"
         result = _extract_nested_fences(text)
         assert result == payload
 
@@ -107,9 +103,7 @@ class TestParseTransformResponse:
             "confidence": 0.85,
             "strategy_used": "ai_driven",
             "warnings": [],
-            "changes": [
-                {"description": "Updated header", "line_range": "1", "reason": "ROS2 API"}
-            ],
+            "changes": [{"description": "Updated header", "line_range": "1", "reason": "ROS2 API"}],
         }
 
     def test_parses_plain_json(self):

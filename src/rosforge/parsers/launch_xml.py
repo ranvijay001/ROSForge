@@ -27,10 +27,7 @@ def _parse_node(el) -> dict:
         "respawn": el.get("respawn", "false"),
         "required": el.get("required", "false"),
         "launch_prefix": el.get("launch-prefix", ""),
-        "remaps": [
-            {"from": r.get("from", ""), "to": r.get("to", "")}
-            for r in el.findall("remap")
-        ],
+        "remaps": [{"from": r.get("from", ""), "to": r.get("to", "")} for r in el.findall("remap")],
         "params": [_parse_param(p) for p in el.findall("param")],
         "rosparam": [_parse_rosparam(r) for r in el.findall("rosparam")],
     }
@@ -67,8 +64,7 @@ def _parse_include(el) -> dict:
         "ns": el.get("ns"),
         "clear_params": el.get("clear_params", "false"),
         "args": [
-            {"name": a.get("name", ""), "value": a.get("value", "")}
-            for a in el.findall("arg")
+            {"name": a.get("name", ""), "value": a.get("value", "")} for a in el.findall("arg")
         ],
     }
 

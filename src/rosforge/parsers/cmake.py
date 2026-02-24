@@ -159,6 +159,7 @@ def parse_cmake(path: Path) -> dict:
         inner = text_flat[start : pos - 1]
         inner = re.sub(r"#[^\n]*", "", inner)
         args = [tok for tok in inner.split() if tok]
+
         # Collect values after every DESTINATION keyword
         # A CMake keyword is all-alpha uppercase (no $, {, }, etc.)
         def _is_cmake_keyword(tok: str) -> bool:
@@ -168,7 +169,9 @@ def parse_cmake(path: Path) -> dict:
         while i < len(args):
             if args[i] == "DESTINATION":
                 i += 1
-                while i < len(args) and not (_is_cmake_keyword(args[i]) and args[i] != "DESTINATION"):
+                while i < len(args) and not (
+                    _is_cmake_keyword(args[i]) and args[i] != "DESTINATION"
+                ):
                     install_rules.append(args[i])
                     i += 1
             else:

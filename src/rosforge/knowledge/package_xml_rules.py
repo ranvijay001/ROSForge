@@ -130,7 +130,7 @@ def _dep_tag(dep_type: DependencyType) -> str:
 # Format 1 uses <run_depend> (no <exec_depend>/<build_export_depend>)
 _FORMAT1_TAG_MAP: dict[str, DependencyType] = {
     "build_depend": DependencyType.BUILD,
-    "run_depend": DependencyType.EXEC,       # format 1 only
+    "run_depend": DependencyType.EXEC,  # format 1 only
     "buildtool_depend": DependencyType.BUILDTOOL,
     "test_depend": DependencyType.TEST,
     "depend": DependencyType.DEPEND,
@@ -195,9 +195,7 @@ def transform_package_xml(
     ET.SubElement(root, "description").text = metadata.description or metadata.name
 
     for maintainer in metadata.maintainers:
-        ET.SubElement(root, "maintainer", attrib={"email": "todo@example.com"}).text = (
-            maintainer
-        )
+        ET.SubElement(root, "maintainer", attrib={"email": "todo@example.com"}).text = maintainer
 
     for lic in metadata.licenses:
         ET.SubElement(root, "license").text = lic
@@ -254,7 +252,7 @@ def transform_package_xml(
     if is_metapackage:
         export_el.append(_make_element("member_of_group", metadata.name))
 
-    for group in (group_membership or []):
+    for group in group_membership or []:
         export_el.append(_make_element("member_of_group", group))
 
     raw = ET.tostring(root, encoding="unicode")

@@ -213,9 +213,7 @@ def transform_cmake(original: str, catkin_deps: list[str]) -> str:
         if re.match(r"\s*include_directories\s*\(", line) and "catkin_INCLUDE_DIRS" in line:
             block, i = _consume_block(lines, i)
             if ros2_deps:
-                output.append(
-                    f"ament_target_dependencies(${{TARGET}} {' '.join(ros2_deps)})\n"
-                )
+                output.append(f"ament_target_dependencies(${{TARGET}} {' '.join(ros2_deps)})\n")
             i += 1
             continue
 
@@ -228,9 +226,7 @@ def transform_cmake(original: str, catkin_deps: list[str]) -> str:
             m = re.search(r"target_link_libraries\s*\(\s*(\S+)", block)
             target = m.group(1) if m else "${TARGET}"
             if ros2_deps:
-                output.append(
-                    f"ament_target_dependencies({target} {' '.join(ros2_deps)})\n"
-                )
+                output.append(f"ament_target_dependencies({target} {' '.join(ros2_deps)})\n")
             i += 1
             continue
 

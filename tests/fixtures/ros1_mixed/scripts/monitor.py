@@ -2,8 +2,8 @@
 """ROS1 monitor node using rospy."""
 
 import rospy
-from std_msgs.msg import String
 from sensor_msgs.msg import LaserScan
+from std_msgs.msg import String
 
 
 def scan_callback(msg):

@@ -90,14 +90,20 @@ def run_command(
             cwd=cwd,
         )
     except subprocess.TimeoutExpired as exc:
+        _tout = exc.stdout or b""
+        _terr = exc.stderr or b""
         return SubprocessResult(
             status="timeout",
-            raw_stdout=exc.stdout or "",
-            raw_stderr=exc.stderr or "",
+            raw_stdout=_tout.decode("utf-8", errors="replace")
+            if isinstance(_tout, bytes)
+            else _tout,
+            raw_stderr=_terr.decode("utf-8", errors="replace")
+            if isinstance(_terr, bytes)
+            else _terr,
             exit_code=-1,
             error_message=f"Command timed out after {timeout}s",
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         return SubprocessResult(
             status="error",
             error_message=str(exc),

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -80,11 +80,11 @@ class WorkspaceRunner:
         start = time.monotonic()
 
         try:
-            from rosforge.pipeline.runner import PipelineContext, PipelineRunner  # noqa: PLC0415
-            from rosforge.pipeline.ingest import IngestStage  # noqa: PLC0415
-            from rosforge.pipeline.analyze import AnalyzeStage  # noqa: PLC0415
-            from rosforge.pipeline.transform import TransformStage  # noqa: PLC0415
-            from rosforge.pipeline.report import ReportStage  # noqa: PLC0415
+            from rosforge.pipeline.analyze import AnalyzeStage
+            from rosforge.pipeline.ingest import IngestStage
+            from rosforge.pipeline.report import ReportStage
+            from rosforge.pipeline.runner import PipelineContext, PipelineRunner
+            from rosforge.pipeline.transform import TransformStage
         except ImportError as exc:
             duration = time.monotonic() - start
             return PackageResult(
@@ -108,7 +108,7 @@ class WorkspaceRunner:
 
         try:
             ctx = runner.run(ctx)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             duration = time.monotonic() - start
             return PackageResult(
                 package_name=pkg_name,
@@ -135,9 +135,7 @@ class WorkspaceRunner:
 
         file_count = len(ctx.transformed_files)
         confidence_avg = (
-            sum(tf.confidence for tf in ctx.transformed_files) / file_count
-            if file_count
-            else 0.0
+            sum(tf.confidence for tf in ctx.transformed_files) / file_count if file_count else 0.0
         )
 
         return PackageResult(

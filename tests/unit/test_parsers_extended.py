@@ -6,12 +6,12 @@ from pathlib import Path
 
 import pytest
 
+from rosforge.models.ir import DependencyType
 from rosforge.parsers.cmake import parse_cmake
 from rosforge.parsers.launch_xml import parse_launch_xml
 from rosforge.parsers.msg_srv import parse_msg_srv
 from rosforge.parsers.package_xml import parse_package_xml
 from rosforge.parsers.python_source import scan_python
-from rosforge.models.ir import DependencyType
 
 FIXTURES = Path(__file__).parent.parent / "fixtures"
 ROS1_PYTHON = FIXTURES / "ros1_python"
@@ -22,6 +22,7 @@ ROS1_LAUNCH = FIXTURES / "ros1_launch"
 # ---------------------------------------------------------------------------
 # python_source.py
 # ---------------------------------------------------------------------------
+
 
 class TestPythonSourceScanner:
     def test_returns_list(self):
@@ -113,6 +114,7 @@ class TestPythonSourceScanner:
 # launch_xml.py
 # ---------------------------------------------------------------------------
 
+
 class TestLaunchXmlParser:
     def test_returns_dict(self):
         result = parse_launch_xml(ROS1_LAUNCH / "talker_listener.launch")
@@ -175,7 +177,7 @@ class TestLaunchXmlParser:
 
     def test_minimal_launch(self, tmp_path):
         f = tmp_path / "minimal.launch"
-        f.write_text("<launch><node pkg=\"p\" type=\"t\" name=\"n\"/></launch>")
+        f.write_text('<launch><node pkg="p" type="t" name="n"/></launch>')
         result = parse_launch_xml(f)
         assert len(result["nodes"]) == 1
         assert result["nodes"][0]["pkg"] == "p"
@@ -184,6 +186,7 @@ class TestLaunchXmlParser:
 # ---------------------------------------------------------------------------
 # msg_srv.py
 # ---------------------------------------------------------------------------
+
 
 class TestMsgParser:
     def test_parse_msg_kind(self):
@@ -290,6 +293,7 @@ class TestActionParser:
 # cmake.py (enhanced)
 # ---------------------------------------------------------------------------
 
+
 class TestCMakeParserEnhanced:
     def test_parse_returns_dict(self):
         result = parse_cmake(ROS1_MSGS / "CMakeLists.txt")
@@ -354,6 +358,7 @@ class TestCMakeParserEnhanced:
 # package_xml.py (format 1 support)
 # ---------------------------------------------------------------------------
 
+
 class TestPackageXmlFormat1:
     def test_parses_format1_without_attribute(self):
         meta, deps = parse_package_xml(ROS1_MSGS / "package_format1.xml")
@@ -404,15 +409,15 @@ class TestPackageXmlFormat1:
         f = tmp_path / "package.xml"
         f.write_text(
             '<?xml version="1.0"?>\n'
-            '<package>\n'
-            '  <name>mypkg</name>\n'
-            '  <version>0.0.1</version>\n'
-            '  <description>test</description>\n'
+            "<package>\n"
+            "  <name>mypkg</name>\n"
+            "  <version>0.0.1</version>\n"
+            "  <description>test</description>\n"
             '  <maintainer email="a@b.com">me</maintainer>\n'
-            '  <license>MIT</license>\n'
-            '  <buildtool_depend>catkin</buildtool_depend>\n'
-            '  <run_depend>sensor_msgs</run_depend>\n'
-            '</package>\n'
+            "  <license>MIT</license>\n"
+            "  <buildtool_depend>catkin</buildtool_depend>\n"
+            "  <run_depend>sensor_msgs</run_depend>\n"
+            "</package>\n"
         )
         meta, deps = parse_package_xml(f)
         assert meta.format_version == 1
