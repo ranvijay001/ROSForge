@@ -16,11 +16,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Confidence scoring in CLI output
 - Pre-migration confirmation prompt (`--yes` to skip)
 - Bridge/fallback guidance for untranslatable packages
+- CI/CD integration templates for GitHub Actions and GitLab CI (`ci-templates/`)
+- GitHub Actions CI pipeline (lint, type-check, test on Python 3.10–3.13)
+- Automated PyPI release via GitHub Release + trusted publishing
+- README rewrite with pipeline diagram, prerequisites, troubleshooting, and roadmap
 
 ### Changed
 - Updated CLI help text for analyze and status commands
 - Improved launch rule conversion for `<machine>` and `<test>` tags
 - Updated PromptBuilder to support custom rule merging
+
+### Fixed
+- Release workflow missing `environment: pypi` for PyPI trusted publishing
 
 ## [0.1.0] - 2026-02-24
 
