@@ -163,31 +163,6 @@ class TestGeminiCLIEngine:
 
 
 class TestGeminiAPIEngine:
-    def _make_engine_with_mock_genai(self, config: EngineConfig):
-        mock_genai = MagicMock()
-        mock_genai.GenerationConfig = MagicMock(return_value={})
-        with patch.dict("sys.modules", {"google.generativeai": mock_genai}):
-            # Re-import with mock
-            import importlib
-
-            import rosforge.engine.gemini.api_backend as mod
-
-            # Patch the module-level flag
-            with (
-                patch.object(mod, "_GENAI_AVAILABLE", True),
-                patch.object(mod, "genai", mock_genai),
-            ):
-                from rosforge.engine.gemini.api_backend import GeminiAPIEngine
-
-                engine = GeminiAPIEngine.__new__(GeminiAPIEngine)
-                engine._config = config
-                engine._builder = __import__(
-                    "rosforge.engine.prompt_builder", fromlist=["PromptBuilder"]
-                ).PromptBuilder()
-                engine._model_name = config.model or "gemini-1.5-pro"
-                engine._genai = mock_genai
-                return engine, mock_genai
-
     def test_import_error_without_sdk(self, api_config):
         import rosforge.engine.gemini.api_backend as mod
 
@@ -233,12 +208,10 @@ class TestGeminiAPIEngine:
         import rosforge.engine.gemini.api_backend as mod
 
         mock_genai = MagicMock()
-        mock_model_instance = MagicMock()
+        mock_client = MagicMock()
         mock_response = MagicMock()
         mock_response.text = VALID_ANALYZE_JSON
-        mock_model_instance.generate_content.return_value = mock_response
-        mock_genai.GenerativeModel.return_value = mock_model_instance
-        mock_genai.GenerationConfig.return_value = {}
+        mock_client.models.generate_content.return_value = mock_response
 
         sample_ir_local = PackageIR(
             source_path=Path("/tmp/pkg"),
@@ -265,6 +238,7 @@ class TestGeminiAPIEngine:
                 "rosforge.engine.prompt_builder", fromlist=["PromptBuilder"]
             ).PromptBuilder()
             engine._model_name = "gemini-1.5-pro"
+            engine._client = mock_client
             plan = engine.analyze(sample_ir_local)
             assert plan.package_name == "test_pkg"
 
@@ -272,11 +246,10 @@ class TestGeminiAPIEngine:
         import rosforge.engine.gemini.api_backend as mod
 
         mock_genai = MagicMock()
-        mock_model_instance = MagicMock()
+        mock_client = MagicMock()
         mock_response = MagicMock()
         mock_response.text = "OK"
-        mock_model_instance.generate_content.return_value = mock_response
-        mock_genai.GenerativeModel.return_value = mock_model_instance
+        mock_client.models.generate_content.return_value = mock_response
 
         with patch.object(mod, "_GENAI_AVAILABLE", True), patch.object(mod, "genai", mock_genai):
             from rosforge.engine.gemini.api_backend import GeminiAPIEngine
@@ -285,15 +258,15 @@ class TestGeminiAPIEngine:
             engine._config = api_config
             engine._builder = MagicMock()
             engine._model_name = "gemini-1.5-pro"
+            engine._client = mock_client
             assert engine.health_check() is True
 
     def test_health_check_failure(self, api_config):
         import rosforge.engine.gemini.api_backend as mod
 
         mock_genai = MagicMock()
-        mock_model_instance = MagicMock()
-        mock_model_instance.generate_content.side_effect = Exception("API error")
-        mock_genai.GenerativeModel.return_value = mock_model_instance
+        mock_client = MagicMock()
+        mock_client.models.generate_content.side_effect = Exception("API error")
 
         with patch.object(mod, "_GENAI_AVAILABLE", True), patch.object(mod, "genai", mock_genai):
             from rosforge.engine.gemini.api_backend import GeminiAPIEngine
@@ -302,6 +275,7 @@ class TestGeminiAPIEngine:
             engine._config = api_config
             engine._builder = MagicMock()
             engine._model_name = "gemini-1.5-pro"
+            engine._client = mock_client
             assert engine.health_check() is False
 
 

@@ -1,22 +1,14 @@
-"""Gemini API backend — uses google-genai (or google-generativeai) SDK."""
+"""Gemini API backend — uses google-genai SDK."""
 
 from __future__ import annotations
 
 try:
-    # Prefer the new google-genai SDK
     import google.genai as genai  # type: ignore[import]
 
     _GENAI_AVAILABLE = True
-    _GENAI_NEW = True
 except ImportError:
-    _GENAI_NEW = False
-    try:
-        import google.generativeai as genai  # type: ignore[import]
-
-        _GENAI_AVAILABLE = True
-    except ImportError:
-        genai = None  # type: ignore[assignment]
-        _GENAI_AVAILABLE = False
+    genai = None  # type: ignore[assignment]
+    _GENAI_AVAILABLE = False
 
 from rosforge.engine.base import EngineInterface
 from rosforge.engine.prompt_builder import PromptBuilder
@@ -37,24 +29,17 @@ _DEFAULT_MODEL = "gemini-1.5-pro"
 
 
 class GeminiAPIEngine(EngineInterface):
-    """AI engine backend that uses the Gemini API via google-genai or google-generativeai SDK."""
+    """AI engine backend that uses the Gemini API via google-genai SDK."""
 
     def __init__(self, config: EngineConfig) -> None:
         self._config = config
         self._builder = PromptBuilder()
         if not _GENAI_AVAILABLE:
             raise ImportError(
-                "A Gemini SDK is not installed. Install it with: pip install google-genai"
+                "google-genai SDK is not installed. Install it with: pip install google-genai"
             )
         api_key = config.api_key or ""
-        if _GENAI_NEW:
-            # google-genai: client-based API
-            self._client = genai.Client(api_key=api_key or None)
-        else:
-            # google-generativeai: module-level configure
-            if api_key:
-                genai.configure(api_key=api_key)
-            self._client = None
+        self._client = genai.Client(api_key=api_key or None)
         self._model_name = config.model or _DEFAULT_MODEL
 
     # ------------------------------------------------------------------
@@ -75,33 +60,16 @@ class GeminiAPIEngine(EngineInterface):
             RuntimeError: If the API call fails.
         """
         try:
-            if _GENAI_NEW:
-                # google-genai SDK
-                response = self._client.models.generate_content(
-                    model=self._model_name,
-                    contents=user_prompt,
-                    config=genai.types.GenerateContentConfig(
-                        system_instruction=system_prompt,
-                        temperature=0.1,
-                        max_output_tokens=8192,
-                    ),
-                )
-                return response.text or ""
-            else:
-                # legacy google-generativeai SDK
-                model = genai.GenerativeModel(
-                    model_name=self._model_name,
+            response = self._client.models.generate_content(
+                model=self._model_name,
+                contents=user_prompt,
+                config=genai.types.GenerateContentConfig(
                     system_instruction=system_prompt,
-                )
-                response = model.generate_content(
-                    user_prompt,
-                    generation_config=genai.GenerationConfig(
-                        temperature=0.1,
-                        max_output_tokens=8192,
-                    ),
-                    request_options={"timeout": self._config.timeout_seconds},
-                )
-                return response.text or ""
+                    temperature=0.1,
+                    max_output_tokens=8192,
+                ),
+            )
+            return response.text or ""
         except Exception as exc:
             raise RuntimeError(f"Gemini API error: {exc}") from exc
 
@@ -157,18 +125,10 @@ class GeminiAPIEngine(EngineInterface):
 
     def health_check(self) -> bool:
         try:
-            if _GENAI_NEW:
-                response = self._client.models.generate_content(
-                    model=self._model_name,
-                    contents="Reply with OK",
-                )
-                return bool(response.text)
-            else:
-                model = genai.GenerativeModel(model_name=self._model_name)
-                response = model.generate_content(
-                    "Reply with OK",
-                    request_options={"timeout": 10},
-                )
-                return bool(response.text)
+            response = self._client.models.generate_content(
+                model=self._model_name,
+                contents="Reply with OK",
+            )
+            return bool(response.text)
         except Exception:
             return False
