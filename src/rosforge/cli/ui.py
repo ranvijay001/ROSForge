@@ -184,6 +184,74 @@ def print_diff(
         _con.print(Panel(diff_text, title=f"Diff: {filename}", border_style="dim"))
 
 
+def print_workspace_progress(current: int, total: int, pkg_name: str) -> None:
+    """Print a one-line progress indicator for workspace migration.
+
+    Args:
+        current: 1-based index of the package currently being migrated.
+        total: Total number of packages in the workspace.
+        pkg_name: Name of the package being migrated.
+    """
+    console.print(
+        f"[cyan][[/cyan]{current}/{total}[cyan]][/cyan] "
+        f"Migrating [bold]{pkg_name}[/bold]..."
+    )
+
+
+def print_workspace_summary(results: list) -> None:  # list[PackageResult]
+    """Print a Rich Table summarising per-package workspace migration results.
+
+    Args:
+        results: List of :class:`~rosforge.pipeline.workspace_runner.PackageResult`
+                 instances returned by :class:`~rosforge.pipeline.workspace_runner.WorkspaceRunner`.
+    """
+    from rich import box  # noqa: PLC0415
+    from rich.table import Table  # noqa: PLC0415
+
+    table = Table(
+        title="[bold cyan]Workspace Migration Summary[/bold cyan]",
+        box=box.SIMPLE_HEAVY,
+        show_lines=False,
+    )
+    table.add_column("Package", style="bold")
+    table.add_column("Status", justify="center")
+    table.add_column("Duration", justify="right")
+    table.add_column("Files", justify="right")
+    table.add_column("Avg Confidence", justify="right")
+    table.add_column("Notes", style="dim")
+
+    for r in results:
+        if r.success:
+            status_str = "[green]SUCCESS[/green]"
+            conf_str = f"[yellow]{r.confidence_avg:.0%}[/yellow]"
+            notes = ""
+        else:
+            status_str = "[red]FAILED[/red]"
+            conf_str = "—"
+            notes = r.error_message[:50] if r.error_message else ""
+
+        table.add_row(
+            r.package_name,
+            status_str,
+            f"{r.duration_seconds:.1f}s",
+            str(r.file_count),
+            conf_str,
+            notes,
+        )
+
+    console.print()
+    console.print(table)
+
+    succeeded = sum(1 for r in results if r.success)
+    failed = len(results) - succeeded
+    total_dur = sum(r.duration_seconds for r in results)
+    console.print(
+        f"  [green]{succeeded} succeeded[/green], "
+        f"[red]{failed} failed[/red]  "
+        f"— total {total_dur:.1f}s"
+    )
+
+
 def print_analysis_table(report: "AnalysisReport", *, console_obj: Console | None = None) -> None:
     """Print a Rich table for an AnalysisReport.
 

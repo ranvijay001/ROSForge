@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>pkg_b</name>
+  <version>0.1.0</version>
+  <description>Test package B for workspace fixture.</description>
+  <maintainer email="test@example.com">Test</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <depend>rospy</depend>
+  <depend>std_msgs</depend>
+</package>

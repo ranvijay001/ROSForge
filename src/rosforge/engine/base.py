@@ -38,6 +38,26 @@ class EngineInterface(ABC):
         """
 
     @abstractmethod
+    def fix(
+        self,
+        source_file: SourceFile,
+        transformed_content: str,
+        error_message: str,
+        plan: MigrationPlan,
+    ) -> TransformedFile:
+        """Fix a failed transformation using AI-driven error correction.
+
+        Args:
+            source_file: The original source file.
+            transformed_content: The previously transformed (broken) content.
+            error_message: The error or validation failure message.
+            plan: The migration plan for context.
+
+        Returns:
+            A TransformedFile with corrected content.
+        """
+
+    @abstractmethod
     def estimate_cost(self, package_ir: PackageIR) -> CostEstimate:
         """Estimate the token/cost for processing this package.
 

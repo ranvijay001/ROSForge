@@ -30,6 +30,8 @@ class TransformedFile(BaseModel):
     confidence_level: Confidence = Confidence.MEDIUM
     warnings: list[str] = Field(default_factory=list)
     strategy_used: str = ""  # "rule_based" or "ai_driven"
+    user_reviewed: bool = False
+    user_action: str = ""  # "accept", "skip", or ""
 
     @property
     def has_changes(self) -> bool:

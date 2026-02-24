@@ -1,4 +1,4 @@
-"""Telemetry collector — Phase 0 stub (local JSONL logging only)."""
+"""Telemetry collector — local JSONL logging."""
 
 from __future__ import annotations
 
@@ -35,4 +35,4 @@ class TelemetryCollector:
             fh.write(line)
 
     def flush(self) -> None:
-        """No-op stub — reserved for Phase 1 remote upload."""
+        """Flush pending events. Currently a no-op (local logging is synchronous)."""

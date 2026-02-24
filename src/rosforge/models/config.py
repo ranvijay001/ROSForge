@@ -24,6 +24,7 @@ class MigrationConfig(BaseModel):
     backup_original: bool = True
     init_git: bool = True
     output_dir: str = ""  # empty = auto-generate
+    interactive: bool = False
 
 
 class ValidationConfig(BaseModel):

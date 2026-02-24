@@ -11,7 +11,7 @@ except ImportError:
 
 from rosforge.engine.base import EngineInterface
 from rosforge.engine.prompt_builder import PromptBuilder
-from rosforge.engine.response_parser import parse_analyze_response, parse_transform_response
+from rosforge.engine.response_parser import parse_analyze_response, parse_fix_response, parse_transform_response
 from rosforge.models.config import EngineConfig
 from rosforge.models.ir import PackageIR, SourceFile
 from rosforge.models.plan import CostEstimate, MigrationPlan
@@ -86,6 +86,21 @@ class ClaudeAPIEngine(EngineInterface):
         system_prompt, user_prompt = self._builder.build_transform_prompt(source_file, plan)
         raw = self._call_api(system_prompt, user_prompt)
         result = parse_transform_response(raw)
+        result.original_content = source_file.content
+        return result
+
+    def fix(
+        self,
+        source_file: SourceFile,
+        transformed_content: str,
+        error_message: str,
+        plan: MigrationPlan,
+    ) -> TransformedFile:
+        system_prompt, user_prompt = self._builder.build_fix_prompt(
+            source_file, transformed_content, error_message
+        )
+        raw = self._call_api(system_prompt, user_prompt)
+        result = parse_fix_response(raw)
         result.original_content = source_file.content
         return result
 

@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
-from datetime import timezone
+from datetime import datetime, timezone
 from importlib.resources import files as _pkg_files
 from pathlib import Path
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
 from rosforge.models.plan import TransformStrategy
 from rosforge.models.result import TransformedFile
 from rosforge.pipeline.runner import PipelineContext
 from rosforge.pipeline.stage import PipelineError, PipelineStage
+
+if TYPE_CHECKING:
+    from rosforge.pipeline.workspace_runner import PackageResult
 
 
 def _confidence_label(score: float) -> str:
@@ -287,3 +290,134 @@ class ReportStage(PipelineStage):
         report_path.write_text(report_text, encoding="utf-8")
 
         return ctx
+
+
+def render_workspace_report(
+    results: "list[PackageResult]",
+    output_path: Path,
+    workspace_path: Path,
+    target_distro: str = "humble",
+) -> str:
+    """Render and write a workspace-level ``workspace_report.md``.
+
+    Tries the Jinja2 template first, falls back to a plain Markdown string.
+
+    Args:
+        results: Ordered list of per-package migration results.
+        output_path: Directory where ``workspace_report.md`` is written.
+        workspace_path: Original catkin workspace root (for display).
+        target_distro: Target ROS 2 distribution name.
+
+    Returns:
+        Rendered report text.
+    """
+    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    total_duration = sum(r.duration_seconds for r in results)
+    total_files = sum(r.file_count for r in results)
+    failed_packages = [r for r in results if not r.success]
+
+    report_text = _render_workspace_jinja2(
+        results=results,
+        workspace_path=workspace_path,
+        output_path=output_path,
+        generated_at=generated_at,
+        target_distro=target_distro,
+        total_duration=total_duration,
+        total_files=total_files,
+        failed_packages=failed_packages,
+    )
+    if report_text is None:
+        report_text = _render_workspace_fallback(
+            results=results,
+            workspace_path=workspace_path,
+            output_path=output_path,
+            generated_at=generated_at,
+            target_distro=target_distro,
+            total_duration=total_duration,
+            total_files=total_files,
+            failed_packages=failed_packages,
+        )
+
+    output_path.mkdir(parents=True, exist_ok=True)
+    (output_path / "workspace_report.md").write_text(report_text, encoding="utf-8")
+    return report_text
+
+
+def _render_workspace_jinja2(
+    results: "list[PackageResult]",
+    workspace_path: Path,
+    output_path: Path,
+    generated_at: str,
+    target_distro: str,
+    total_duration: float,
+    total_files: int,
+    failed_packages: "list[PackageResult]",
+) -> str | None:
+    """Render workspace report via Jinja2 template. Returns None if unavailable."""
+    try:
+        from jinja2 import Environment, FileSystemLoader  # noqa: PLC0415
+    except ImportError:
+        return None
+
+    template_dir = Path(__file__).parent.parent / "templates"
+    env = Environment(
+        loader=FileSystemLoader(str(template_dir)),
+        autoescape=False,
+        keep_trailing_newline=True,
+    )
+    template = env.get_template("workspace_report.md.j2")
+    return template.render(
+        results=results,
+        workspace_path=str(workspace_path),
+        output_path=str(output_path),
+        generated_at=generated_at,
+        target_distro=target_distro,
+        total_duration=total_duration,
+        total_files=total_files,
+        failed_packages=failed_packages,
+    )
+
+
+def _render_workspace_fallback(
+    results: "list[PackageResult]",
+    workspace_path: Path,
+    output_path: Path,
+    generated_at: str,
+    target_distro: str,
+    total_duration: float,
+    total_files: int,
+    failed_packages: "list[PackageResult]",
+) -> str:
+    """Plain Markdown workspace report (no Jinja2 dependency)."""
+    succeeded = [r for r in results if r.success]
+    lines: list[str] = [
+        "# ROSForge Workspace Migration Report\n\n",
+        f"**Workspace:** `{workspace_path}`\n",
+        f"**Output:** `{output_path}`\n",
+        f"**Generated:** {generated_at}\n",
+        f"**Target:** ROS 2 {target_distro}\n\n",
+        "---\n\n## Summary\n\n",
+        f"- Total packages: {len(results)}\n",
+        f"- Succeeded: {len(succeeded)}\n",
+        f"- Failed: {len(failed_packages)}\n",
+        f"- Total duration: {total_duration:.1f}s\n",
+        f"- Files transformed: {total_files}\n\n",
+        "---\n\n## Per-Package Results\n\n",
+        "| Package | Status | Duration | Files | Avg Confidence |\n",
+        "|---------|--------|----------|-------|----------------|\n",
+    ]
+    for r in results:
+        status = "SUCCESS" if r.success else "FAILED"
+        conf = f"{r.confidence_avg:.0%}" if r.success else "—"
+        lines.append(
+            f"| `{r.package_name}` | {status} | {r.duration_seconds:.1f}s"
+            f" | {r.file_count} | {conf} |\n"
+        )
+
+    if failed_packages:
+        lines.append("\n---\n\n## Failed Packages\n\n")
+        for r in failed_packages:
+            lines.append(f"### `{r.package_name}`\n\n")
+            lines.append(f"**Error:** {r.error_message}\n\n")
+
+    return "".join(lines)

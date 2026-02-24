@@ -345,6 +345,21 @@ def parse_analyze_response(raw: str) -> MigrationPlan:
     )
 
 
+def parse_fix_response(raw: str) -> TransformedFile:
+    """Parse an AI fix response into a TransformedFile.
+
+    Delegates to parse_transform_response — the schema is identical.
+    This is a semantic alias to make fix-loop call sites self-documenting.
+
+    Args:
+        raw: Raw string output from the AI backend.
+
+    Returns:
+        A TransformedFile instance (may have empty fields on parse failure).
+    """
+    return parse_transform_response(raw)
+
+
 def parse_structured_output(raw: str, schema_keys: list[str]) -> dict:
     """Parse structured output from API backends, validating expected keys.
 

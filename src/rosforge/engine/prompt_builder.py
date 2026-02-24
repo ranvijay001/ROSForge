@@ -9,7 +9,9 @@ from rosforge.knowledge import (
     ROSCPP_TO_RCLCPP,
     ROSPY_TO_RCLPY,
     ROS1_TO_ROS2_PACKAGES,
+    merge_custom_rules,
 )
+from rosforge.knowledge.custom_rules import CustomRules
 from rosforge.models.ir import FileType, PackageIR, SourceFile
 from rosforge.models.plan import MigrationPlan
 
@@ -142,14 +144,42 @@ _OUTPUT_FORMAT_CLI = (
 class PromptBuilder:
     """Build system/user prompt pairs for AI transform and analyze tasks."""
 
-    def __init__(self, backend_mode: str = "api") -> None:
+    def __init__(
+        self,
+        backend_mode: str = "api",
+        custom_rules: CustomRules | None = None,
+    ) -> None:
         """Initialise the PromptBuilder.
 
         Args:
             backend_mode: Either ``"api"`` (structured JSON response expected)
                           or ``"cli"`` (markdown fenced block expected).
+            custom_rules: Optional user-supplied mapping overrides.  When
+                provided, custom entries are merged on top of the built-in
+                knowledge tables (custom rules win on collision).
         """
         self._backend_mode = backend_mode
+        self._custom_rules = custom_rules
+
+        # Pre-compute merged mapping tables (never mutates module-level globals)
+        if custom_rules is not None:
+            (
+                self._roscpp_to_rclcpp,
+                self._rospy_to_rclpy,
+                self._ros1_to_ros2_packages,
+                self._catkin_to_ament,
+            ) = merge_custom_rules(
+                custom_rules,
+                ROSCPP_TO_RCLCPP,
+                ROSPY_TO_RCLPY,
+                ROS1_TO_ROS2_PACKAGES,
+                CATKIN_TO_AMENT,
+            )
+        else:
+            self._roscpp_to_rclcpp = ROSCPP_TO_RCLCPP
+            self._rospy_to_rclpy = ROSPY_TO_RCLPY
+            self._ros1_to_ros2_packages = ROS1_TO_ROS2_PACKAGES
+            self._catkin_to_ament = CATKIN_TO_AMENT
 
     # ------------------------------------------------------------------
     # Token helpers
@@ -194,10 +224,10 @@ class PromptBuilder:
     # ------------------------------------------------------------------
 
     def _knowledge_section(self) -> str:
-        cpp_table = _format_mapping_table(ROSCPP_TO_RCLCPP, "C++ API Mappings (roscpp → rclcpp)")
-        py_table = _format_mapping_table(ROSPY_TO_RCLPY, "Python API Mappings (rospy → rclpy)")
-        cmake_table = _format_mapping_table(CATKIN_TO_AMENT, "CMake Mappings (catkin → ament)")
-        pkg_table = _format_mapping_table(ROS1_TO_ROS2_PACKAGES, "Package Name Mappings")
+        cpp_table = _format_mapping_table(self._roscpp_to_rclcpp, "C++ API Mappings (roscpp → rclcpp)")
+        py_table = _format_mapping_table(self._rospy_to_rclpy, "Python API Mappings (rospy → rclpy)")
+        cmake_table = _format_mapping_table(self._catkin_to_ament, "CMake Mappings (catkin → ament)")
+        pkg_table = _format_mapping_table(self._ros1_to_ros2_packages, "Package Name Mappings")
         parts = [s for s in [cpp_table, py_table, cmake_table, pkg_table] if s]
         return "\n\n".join(parts)
 
@@ -205,21 +235,21 @@ class PromptBuilder:
         """Return a knowledge section relevant to the given file type."""
         if file_type in (FileType.CPP, FileType.HPP):
             cpp_table = _format_mapping_table(
-                ROSCPP_TO_RCLCPP, "C++ API Mappings (roscpp → rclcpp)"
+                self._roscpp_to_rclcpp, "C++ API Mappings (roscpp → rclcpp)"
             )
-            pkg_table = _format_mapping_table(ROS1_TO_ROS2_PACKAGES, "Package Name Mappings")
+            pkg_table = _format_mapping_table(self._ros1_to_ros2_packages, "Package Name Mappings")
             return "\n\n".join(filter(None, [cpp_table, pkg_table]))
 
         if file_type == FileType.PYTHON:
             py_table = _format_mapping_table(
-                ROSPY_TO_RCLPY, "Python API Mappings (rospy → rclpy)"
+                self._rospy_to_rclpy, "Python API Mappings (rospy → rclpy)"
             )
-            pkg_table = _format_mapping_table(ROS1_TO_ROS2_PACKAGES, "Package Name Mappings")
+            pkg_table = _format_mapping_table(self._ros1_to_ros2_packages, "Package Name Mappings")
             return "\n\n".join(filter(None, [py_table, pkg_table]))
 
         if file_type == FileType.CMAKE:
             cmake_table = _format_mapping_table(
-                CATKIN_TO_AMENT, "CMake Mappings (catkin → ament)"
+                self._catkin_to_ament, "CMake Mappings (catkin → ament)"
             )
             return cmake_table
 
@@ -369,7 +399,7 @@ class PromptBuilder:
         return system_prompt, user_prompt
 
     # ------------------------------------------------------------------
-    # Fix prompt (stub for future fix loop)
+    # Fix prompt (used by ValidateFixLoopStage)
     # ------------------------------------------------------------------
 
     def build_fix_prompt(
@@ -380,7 +410,7 @@ class PromptBuilder:
     ) -> tuple[str, str]:
         """Build prompts for fixing a failed or low-confidence transformation.
 
-        This is a stub intended for use in a future fix loop where the AI
+        Used by the fix loop (ValidateFixLoopStage) where the AI
         is asked to correct its own output after validation failures.
 
         Args:

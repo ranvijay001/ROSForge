@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable
 
 from rosforge.models.config import RosForgeConfig
 from rosforge.models.ir import PackageIR
@@ -14,7 +14,7 @@ from rosforge.models.result import TransformedFile, ValidationResult
 from rosforge.pipeline.stage import PipelineError, PipelineStage
 
 if TYPE_CHECKING:
-    pass
+    from rosforge.engine.base import EngineInterface
 
 
 @dataclass
@@ -26,6 +26,10 @@ class PipelineContext:
     output_path: Path
     config: RosForgeConfig
 
+    # --- Optional custom rules (set before run, if provided) ---
+    # Type is Any to avoid a circular import; callers should pass CustomRules.
+    custom_rules: Any = None
+
     # --- Stage outputs (populated progressively) ---
     package_ir: PackageIR | None = None
     analysis_report: str = ""
@@ -34,6 +38,13 @@ class PipelineContext:
     transformed_files: list[TransformedFile] = field(default_factory=list)
     validation_result: ValidationResult | None = None
     migration_report: str = ""
+
+    # --- Engine (set by TransformStage or caller for fix loop) ---
+    engine: "EngineInterface | None" = None
+
+    # --- Fix loop tracking ---
+    fix_attempts: int = 0
+    max_fix_attempts: int = 0
 
     # --- Tracking ---
     errors: list[PipelineError] = field(default_factory=list)
@@ -52,8 +63,13 @@ class PipelineContext:
 class PipelineRunner:
     """Execute a sequence of PipelineStages, tracking progress with Rich."""
 
-    def __init__(self, stages: list[PipelineStage]) -> None:
+    def __init__(
+        self,
+        stages: list[PipelineStage],
+        after_stage_callback: Callable[[str, "PipelineContext"], None] | None = None,
+    ) -> None:
         self._stages = stages
+        self.after_stage_callback = after_stage_callback
 
     def run(self, ctx: PipelineContext) -> PipelineContext:
         """Execute all stages sequentially.
@@ -84,6 +100,8 @@ class PipelineRunner:
                     task = progress.add_task(f"[cyan]{stage.name}...", total=None)
                     ctx = self._run_stage(stage, ctx)
                     progress.remove_task(task)
+                    if self.after_stage_callback is not None:
+                        self.after_stage_callback(stage.name, ctx)
                     if ctx.fatal_errors:
                         console.print(
                             f"[red]Pipeline stopped at stage '{stage.name}': "
@@ -96,6 +114,8 @@ class PipelineRunner:
             for stage in self._stages:
                 print(f"[rosforge] running stage: {stage.name}")
                 ctx = self._run_stage(stage, ctx)
+                if self.after_stage_callback is not None:
+                    self.after_stage_callback(stage.name, ctx)
                 if ctx.fatal_errors:
                     print(
                         f"[rosforge] pipeline stopped at '{stage.name}': "

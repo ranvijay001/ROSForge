@@ -1,0 +1,54 @@
+# ROSForge Workspace Migration Report
+
+**Workspace:** `{{ workspace_path }}`
+**Output:** `{{ output_path }}`
+**Generated:** {{ generated_at }}
+**Target:** ROS 2 {{ target_distro }}
+
+---
+
+## Summary
+
+| Metric | Value |
+|--------|-------|
+| Total packages | {{ results | length }} |
+| Succeeded | {{ results | selectattr('success') | list | length }} |
+| Failed | {{ results | rejectattr('success') | list | length }} |
+| Total duration | {{ "%.1f"|format(total_duration) }}s |
+| Files transformed | {{ total_files }} |
+
+---
+
+## Per-Package Results
+
+| Package | Status | Duration | Files | Avg Confidence | Notes |
+|---------|--------|----------|-------|----------------|-------|
+{% for r in results %}
+| `{{ r.package_name }}` | {{ "SUCCESS" if r.success else "FAILED" }} | {{ "%.1f"|format(r.duration_seconds) }}s | {{ r.file_count }} | {% if r.success %}{{ "%.0f"|format(r.confidence_avg * 100) }}%{% else %}—{% endif %} | {% if not r.success %}{{ r.error_message | truncate(60) }}{% endif %} |
+{% endfor %}
+
+---
+
+## Individual Reports
+
+{% for r in results %}
+{% if r.success %}
+- [{{ r.package_name }}]({{ r.package_name }}/migration_report.md)
+{% else %}
+- ~~{{ r.package_name }}~~ — migration failed: {{ r.error_message }}
+{% endif %}
+{% endfor %}
+{% if failed_packages %}
+
+---
+
+## Failed Packages
+
+{% for r in failed_packages %}
+### `{{ r.package_name }}`
+
+**Error:** {{ r.error_message }}
+**Source:** `{{ r.source_path }}`
+
+{% endfor %}
+{% endif %}
